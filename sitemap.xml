@@ -2,7 +2,7 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   
   <url>
-    <loc>https://zhouzhq2021.github.io/2024/03/21/About-Me/</loc>
+    <loc>https://zhouzhq2021.github.io/2024/03/21/hello-world/</loc>
     
     <lastmod>2025-06-25</lastmod>
     
@@ -11,7 +11,25 @@
   </url>
   
   <url>
-    <loc>https://zhouzhq2021.github.io/2025/06/25/hello-world/</loc>
+    <loc>https://zhouzhq2021.github.io/tags/index.html</loc>
+    
+    <lastmod>2025-06-25</lastmod>
+    
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
+    <loc>https://zhouzhq2021.github.io/about/index.html</loc>
+    
+    <lastmod>2025-06-25</lastmod>
+    
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
+    <loc>https://zhouzhq2021.github.io/2024/03/21/About-Me/</loc>
     
     <lastmod>2025-06-25</lastmod>
     
@@ -29,6 +47,27 @@
 
   
   <url>
+    <loc>https://zhouzhq2021.github.io/tags/CL/</loc>
+    <lastmod>2025-06-25</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  
+  <url>
+    <loc>https://zhouzhq2021.github.io/tags/CV/</loc>
+    <lastmod>2025-06-25</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  
+  <url>
+    <loc>https://zhouzhq2021.github.io/tags/SE/</loc>
+    <lastmod>2025-06-25</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  
+  <url>
     <loc>https://zhouzhq2021.github.io/tags/Introduction/</loc>
     <lastmod>2025-06-25</lastmod>
     <changefreq>weekly</changefreq>
@@ -36,6 +75,13 @@
   </url>
   
 
+  
+  <url>
+    <loc>https://zhouzhq2021.github.io/categories/Test/</loc>
+    <lastmod>2025-06-25</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.2</priority>
+  </url>
   
   <url>
     <loc>https://zhouzhq2021.github.io/categories/Personal/</loc>
