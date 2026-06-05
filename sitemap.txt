@@ -1,10 +1,8 @@
-https://zhouzhq2021.github.io/2026/06/05/About-Me/
 https://zhouzhq2021.github.io/about/index.html
+https://zhouzhq2021.github.io/index.html
 https://zhouzhq2021.github.io/categories/index.html
 https://zhouzhq2021.github.io/books/index.html
 https://zhouzhq2021.github.io/links/index.html
 https://zhouzhq2021.github.io/repository/index.html
 https://zhouzhq2021.github.io/tags/index.html
 https://zhouzhq2021.github.io/
-https://zhouzhq2021.github.io/tags/Introduction/
-https://zhouzhq2021.github.io/categories/Personal/
