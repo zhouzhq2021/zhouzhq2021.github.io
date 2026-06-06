@@ -20,15 +20,6 @@
   </url>
   
   <url>
-    <loc>https://zhouzhq2021.github.io/categories/index.html</loc>
-    
-    <lastmod>2026-06-05</lastmod>
-    
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
-  </url>
-  
-  <url>
     <loc>https://zhouzhq2021.github.io/books/index.html</loc>
     
     <lastmod>2026-06-05</lastmod>
@@ -38,7 +29,7 @@
   </url>
   
   <url>
-    <loc>https://zhouzhq2021.github.io/repository/index.html</loc>
+    <loc>https://zhouzhq2021.github.io/categories/index.html</loc>
     
     <lastmod>2026-06-05</lastmod>
     
@@ -48,6 +39,15 @@
   
   <url>
     <loc>https://zhouzhq2021.github.io/links/index.html</loc>
+    
+    <lastmod>2026-06-05</lastmod>
+    
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
+    <loc>https://zhouzhq2021.github.io/repository/index.html</loc>
     
     <lastmod>2026-06-05</lastmod>
     

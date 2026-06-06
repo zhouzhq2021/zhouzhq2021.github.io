@@ -126,6 +126,24 @@
   font-size: 14px;
 }
 
+.sidebar-simple-list {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+.sidebar-simple-list li {
+  margin: 7px 0;
+  line-height: 1.55;
+}
+
+.sidebar-contact-label {
+  display: inline-block;
+  min-width: 56px;
+  color: #777;
+  font-weight: 600;
+}
+
 @media (max-width: 720px) {
   .resume-hero,
   .resume-item {
