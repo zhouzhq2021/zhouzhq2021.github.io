@@ -2,7 +2,7 @@ https://zhouzhq2021.github.io/about/index.html
 https://zhouzhq2021.github.io/index.html
 https://zhouzhq2021.github.io/categories/index.html
 https://zhouzhq2021.github.io/books/index.html
-https://zhouzhq2021.github.io/links/index.html
 https://zhouzhq2021.github.io/repository/index.html
+https://zhouzhq2021.github.io/links/index.html
 https://zhouzhq2021.github.io/tags/index.html
 https://zhouzhq2021.github.io/
