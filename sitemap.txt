@@ -1,7 +1,7 @@
-https://zhouzhq2021.github.io/2026/06/08/ceph-cluster-lab-notes/
-https://zhouzhq2021.github.io/2026/06/08/hadoop-spark-environment-lab-notes/
-https://zhouzhq2021.github.io/2026/06/08/kubernetes-lab-notes/
-https://zhouzhq2021.github.io/2026/06/08/openstack-lab-notes/
+https://zhouzhq2021.github.io/2024/06/29/kubernetes-lab-notes/
+https://zhouzhq2021.github.io/2024/05/21/hadoop-spark-environment-lab-notes/
+https://zhouzhq2021.github.io/2024/04/13/ceph-cluster-lab-notes/
+https://zhouzhq2021.github.io/2024/05/28/openstack-lab-notes/
 https://zhouzhq2021.github.io/index.html
 https://zhouzhq2021.github.io/books/index.html
 https://zhouzhq2021.github.io/categories/index.html
