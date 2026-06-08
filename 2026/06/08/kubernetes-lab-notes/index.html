@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang=en>
+<head>
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, minimal-ui">
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="Cache-Control" content="no-transform" />
+  <meta http-equiv="Cache-Control" content="no-siteapp" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="format-detection" content="telephone=no,email=no,adress=no">
+  <!-- Color theme for statusbar -->
+  <meta name="theme-color" content="#000000" />
+  <!-- 强制页面在当前窗口以独立页面显示,防止别人在框架里调用页面 -->
+  <meta http-equiv="window-target" content="_top" />
+  
+  
+  <title>Kubernetes 实践：集群安装与应用部署 | Zhongquan Zhou&#39;s Blog</title>
+  <meta name="description" content="这篇记录整理一次 Kubernetes 环境搭建和应用部署流程，内容覆盖 Docker、cri-dockerd、kubeadm、Calico、Metrics Server、Pod、Deployment、Service、LoadBalancer、Ingress、NFS、Helm、Rancher 和 WordPress。  一、目标 Kubernetes(简称K8S) 是容器和集群管理的标准。Kube">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Kubernetes 实践：集群安装与应用部署">
+<meta property="og:url" content="https://zhouzhq2021.github.io/2026/06/08/kubernetes-lab-notes/index.html">
+<meta property="og:site_name" content="Zhongquan Zhou&#39;s Blog">
+<meta property="og:description" content="这篇记录整理一次 Kubernetes 环境搭建和应用部署流程，内容覆盖 Docker、cri-dockerd、kubeadm、Calico、Metrics Server、Pod、Deployment、Service、LoadBalancer、Ingress、NFS、Helm、Rancher 和 WordPress。  一、目标 Kubernetes(简称K8S) 是容器和集群管理的标准。Kube">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-003.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-004.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-005.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-006.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-007.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-008.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-009.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-010.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-011.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-012.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-013.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-014.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-015.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-016.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-017.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-018.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-019.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-020.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-021.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-022.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-023.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-024.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-025.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-026.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-027.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-028.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-029.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-030.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-031.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-032.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-033.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-034.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-035.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-036.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-037.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-038.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-039.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-040.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-041.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-042.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-043.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-044.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-045.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-046.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-047.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-048.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-049.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-050.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-051.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-052.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-053.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-054.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-055.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-056.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-057.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-058.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-059.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-060.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-061.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-062.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-063.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-064.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-065.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-066.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-067.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-068.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-069.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-070.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-071.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-072.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-073.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-074.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-075.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-076.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-077.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-078.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-079.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-080.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-081.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-082.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-083.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-084.png">
+<meta property="article:published_time" content="2026-06-08T03:40:00.000Z">
+<meta property="article:modified_time" content="2026-06-08T04:41:53.514Z">
+<meta property="article:author" content="Zhongquan Zhou">
+<meta property="article:tag" content="Kubernetes">
+<meta property="article:tag" content="Docker">
+<meta property="article:tag" content="Helm">
+<meta property="article:tag" content="Rancher">
+<meta property="article:tag" content="NFS">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://zhouzhq2021.github.io/images/posts/kubernetes-lab-notes/image-003.png">
+  <!-- Canonical links -->
+  <link rel="canonical" href="https://zhouzhq2021.github.io/2026/06/08/kubernetes-lab-notes/index.html">
+  
+    <link rel="alternate" href="/atom.xml" title="Zhongquan Zhou&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+  
+  
+    <link href="//cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.3.5/dist/jquery.fancybox.min.css" rel="stylesheet">
+  
+  
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1.4.0/dist/gitalk.min.css">
+  
+  <link rel="stylesheet" type="text/css" href="/css/custom.css">
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body class="main-center" itemscope itemtype="http://schema.org/WebPage">
+  <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+  <div class="slimContent">
+    <div class="navbar-header">
+      
+      
+      <div class="profile-block text-center">
+        <a id="avatar" href="https://github.com/zhouzhq2021" target="_blank">
+          <img class="img-circle img-rotate" src="/images/avatar-20260605.jpg" width="200" height="200">
+        </a>
+        <h2 id="name" class="hidden-xs hidden-sm">Zhongquan Zhou</h2>
+        <h3 id="title" class="hidden-xs hidden-sm hidden-md">Computer Science Graduate Student @ Shanghai Jiao Tong University</h3>
+        <small id="location" class="text-muted hidden-xs hidden-sm"><i class="icon icon-map-marker"></i> Shanghai, China</small>
+      </div>
+      
+      <div class="search" id="search-form-wrap">
+
+    <form class="search-form sidebar-form">
+        <div class="input-group">
+            <input type="text" class="search-form-input form-control" placeholder="Search" />
+            <span class="input-group-btn">
+                <button type="submit" class="search-form-submit btn btn-flat" onclick="return false;"><i class="icon icon-search"></i></button>
+            </span>
+        </div>
+    </form>
+    <div class="ins-search">
+  <div class="ins-search-mask"></div>
+  <div class="ins-search-container">
+    <div class="ins-input-wrapper">
+      <input type="text" class="ins-search-input" placeholder="Type something..." x-webkit-speech />
+      <button type="button" class="close ins-close ins-selectable" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">×</span></button>
+    </div>
+    <div class="ins-section-wrapper">
+      <div class="ins-section-container"></div>
+    </div>
+  </div>
+</div>
+
+
+</div>
+      <button class="navbar-toggle collapsed" type="button" data-toggle="collapse" data-target="#main-navbar" aria-controls="main-navbar" aria-expanded="false">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+    </div>
+    <nav id="main-navbar" class="collapse navbar-collapse" itemscope itemtype="http://schema.org/SiteNavigationElement" role="navigation">
+      <ul class="nav navbar-nav main-nav menu-highlight">
+        
+        
+        <li class="menu-item menu-item-home">
+          <a href="/.">
+            
+            <i class="icon icon-home-fill"></i>
+            
+            <span class="menu-title">Home</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories">
+            
+            <i class="icon icon-folder"></i>
+            
+            <span class="menu-title">Categories</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags">
+            
+            <i class="icon icon-tags"></i>
+            
+            <span class="menu-title">Tags</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-repository">
+          <a href="/repository">
+            
+            <i class="icon icon-project"></i>
+            
+            <span class="menu-title">Repository</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-books">
+          <a href="/books">
+            
+            <i class="icon icon-book-fill"></i>
+            
+            <span class="menu-title">Books</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-links">
+          <a href="/links">
+            
+            <i class="icon icon-friendship"></i>
+            
+            <span class="menu-title">Links</span>
+          </a>
+        </li>
+        
+      </ul>
+      
+	
+    <ul class="social-links">
+    	
+        <li><a href="https://github.com/zhouzhq2021" target="_blank" title="Github" data-toggle=tooltip data-placement=top><i class="icon icon-github"></i></a></li>
+        
+        <li><a href="mailto:zhouzhq2021@sjtu.edu.cn" target="_blank" title="Email" data-toggle=tooltip data-placement=top><i class="icon icon-email"></i></a></li>
+        
+        <li><a href="/atom.xml" target="_blank" title="Rss" data-toggle=tooltip data-placement=top><i class="icon icon-rss"></i></a></li>
+        
+    </ul>
+
+    </nav>
+  </div>
+</header>
+
+  
+    <aside class="sidebar" itemscope itemtype="http://schema.org/WPSideBar">
+  <div class="slimContent">
+    
+      <div class="widget">
+    <h3 class="widget-title">Board</h3>
+    <div class="widget-body">
+        <div id="board">
+            <div class="content">
+                <p>Welcome to my personal blog! Feel free to explore and share your thoughts!</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Contact</h3>
+    <div class="widget-body">
+      <ul class="sidebar-simple-list">
+        
+          
+          <li>
+            <span class="sidebar-contact-label">Email</span>
+            
+              <a href="mailto:zhouzhq2021@sjtu.edu.cn">zhouzhq2021@sjtu.edu.cn</a>
+            
+          </li>
+        
+          
+          <li>
+            <span class="sidebar-contact-label">GitHub</span>
+            
+              <a href="https://github.com/zhouzhq2021" target="_blank">github.com/zhouzhq2021</a>
+            
+          </li>
+        
+          
+          <li>
+            <span class="sidebar-contact-label">Location</span>
+            
+              <span>Shanghai, China</span>
+            
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Categories</h3>
+    <div class="widget-body">
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/Cloud-Computing-and-Big-Data/">Cloud Computing and Big Data</a><span class="category-list-count">4</span></li></ul>
+    </div>
+  </div>
+
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Tags</h3>
+    <div class="widget-body">
+      <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/Ceph/" rel="tag">Ceph</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Cloud-Computing/" rel="tag">Cloud Computing</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Distributed-Storage/" rel="tag">Distributed Storage</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Docker/" rel="tag">Docker</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/HDFS/" rel="tag">HDFS</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Hadoop/" rel="tag">Hadoop</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Helm/" rel="tag">Helm</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Kubernetes/" rel="tag">Kubernetes</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/NFS/" rel="tag">NFS</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/OpenStack/" rel="tag">OpenStack</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/RBD/" rel="tag">RBD</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Rancher/" rel="tag">Rancher</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/S3/" rel="tag">S3</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Spark/" rel="tag">Spark</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Virtualization/" rel="tag">Virtualization</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/YARN/" rel="tag">YARN</a><span class="tag-list-count">1</span></li></ul>
+    </div>
+  </div>
+
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Tag Cloud</h3>
+    <div class="widget-body tagcloud">
+      <a href="/tags/Ceph/" style="font-size: 13px;">Ceph</a> <a href="/tags/Cloud-Computing/" style="font-size: 13px;">Cloud Computing</a> <a href="/tags/Distributed-Storage/" style="font-size: 13px;">Distributed Storage</a> <a href="/tags/Docker/" style="font-size: 13px;">Docker</a> <a href="/tags/HDFS/" style="font-size: 13px;">HDFS</a> <a href="/tags/Hadoop/" style="font-size: 13px;">Hadoop</a> <a href="/tags/Helm/" style="font-size: 13px;">Helm</a> <a href="/tags/Kubernetes/" style="font-size: 13px;">Kubernetes</a> <a href="/tags/NFS/" style="font-size: 13px;">NFS</a> <a href="/tags/OpenStack/" style="font-size: 13px;">OpenStack</a> <a href="/tags/RBD/" style="font-size: 13px;">RBD</a> <a href="/tags/Rancher/" style="font-size: 13px;">Rancher</a> <a href="/tags/S3/" style="font-size: 13px;">S3</a> <a href="/tags/Spark/" style="font-size: 13px;">Spark</a> <a href="/tags/Virtualization/" style="font-size: 13px;">Virtualization</a> <a href="/tags/YARN/" style="font-size: 13px;">YARN</a>
+    </div>
+  </div>
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Archive</h3>
+    <div class="widget-body">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2026/06/">June 2026</a><span class="archive-list-count">4</span></li></ul>
+    </div>
+  </div>
+
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget-body">
+      <ul class="recent-post-list list-unstyled ">
+        
+          <li>
+            
+            <div class="item-thumb">
+              <a href="/2026/06/08/kubernetes-lab-notes/" class="thumb">
+    
+    
+        <span class="thumb-image thumb-none"></span>
+    
+</a>
+
+            </div>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/Cloud-Computing-and-Big-Data/">Cloud Computing and Big Data</a>
+              </p>
+              <p class="item-title">
+                <a href="/2026/06/08/kubernetes-lab-notes/" class="title">Kubernetes 实践：集群安装与应用部署</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2026-06-08T03:40:00.000Z" itemprop="datePublished">2026-06-08</time>
+              </p>
+            </div>
+          </li>
+          
+          <li>
+            
+            <div class="item-thumb">
+              <a href="/2026/06/08/hadoop-spark-environment-lab-notes/" class="thumb">
+    
+    
+        <span class="thumb-image thumb-none"></span>
+    
+</a>
+
+            </div>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/Cloud-Computing-and-Big-Data/">Cloud Computing and Big Data</a>
+              </p>
+              <p class="item-title">
+                <a href="/2026/06/08/hadoop-spark-environment-lab-notes/" class="title">Hadoop 与 Spark 单节点大数据环境搭建</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2026-06-08T03:30:00.000Z" itemprop="datePublished">2026-06-08</time>
+              </p>
+            </div>
+          </li>
+          
+          <li>
+            
+            <div class="item-thumb">
+              <a href="/2026/06/08/ceph-cluster-lab-notes/" class="thumb">
+    
+    
+        <span class="thumb-image thumb-none"></span>
+    
+</a>
+
+            </div>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/Cloud-Computing-and-Big-Data/">Cloud Computing and Big Data</a>
+              </p>
+              <p class="item-title">
+                <a href="/2026/06/08/ceph-cluster-lab-notes/" class="title">Ceph Cluster Installation：分布式存储集群搭建与使用</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2026-06-08T03:20:00.000Z" itemprop="datePublished">2026-06-08</time>
+              </p>
+            </div>
+          </li>
+          
+          <li>
+            
+            <div class="item-thumb">
+              <a href="/2026/06/08/openstack-lab-notes/" class="thumb">
+    
+    
+        <span class="thumb-image thumb-none"></span>
+    
+</a>
+
+            </div>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/Cloud-Computing-and-Big-Data/">Cloud Computing and Big Data</a>
+              </p>
+              <p class="item-title">
+                <a href="/2026/06/08/openstack-lab-notes/" class="title">OpenStack 实践：完整环境搭建与服务验证</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2026-06-08T03:10:00.000Z" itemprop="datePublished">2026-06-08</time>
+              </p>
+            </div>
+          </li>
+          
+      </ul>
+    </div>
+  </div>
+  
+
+    
+  </div>
+</aside>
+
+  
+  
+<main class="main" role="main">
+  <div class="content">
+  <article id="post-kubernetes-lab-notes" class="article article-type-post" itemscope itemtype="http://schema.org/BlogPosting">
+    
+    <div class="article-header">
+      
+        
+  
+    <h1 class="article-title" itemprop="name">
+      Kubernetes 实践：集群安装与应用部署
+    </h1>
+  
+
+      
+      <div class="article-meta">
+        <span class="article-date">
+    <i class="icon icon-calendar-check"></i>
+	<a href="/2026/06/08/kubernetes-lab-notes/" class="article-date">
+	  <time datetime="2026-06-08T03:40:00.000Z" itemprop="datePublished">2026-06-08</time>
+	</a>
+</span>
+        
+  <span class="article-category">
+    <i class="icon icon-folder"></i>
+    <a class="article-category-link" href="/categories/Cloud-Computing-and-Big-Data/">Cloud Computing and Big Data</a>
+  </span>
+
+        
+  <span class="article-tag">
+    <i class="icon icon-tags"></i>
+	<a class="article-tag-link-link" href="/tags/Docker/" rel="tag">Docker</a>, <a class="article-tag-link-link" href="/tags/Helm/" rel="tag">Helm</a>, <a class="article-tag-link-link" href="/tags/Kubernetes/" rel="tag">Kubernetes</a>, <a class="article-tag-link-link" href="/tags/NFS/" rel="tag">NFS</a>, <a class="article-tag-link-link" href="/tags/Rancher/" rel="tag">Rancher</a>
+  </span>
+
+
+        
+	<span class="article-read hidden-xs">
+	    <i class="icon icon-eye-fill" aria-hidden="true"></i>
+	    <span id="busuanzi_container_page_pv">
+			<span id="busuanzi_value_page_pv">0</span>
+		</span>
+	</span>
+
+
+        
+        <span class="post-comment"><i class="icon icon-comment"></i> <a href="/2026/06/08/kubernetes-lab-notes/#comments" class="article-comment-link">Comments</a></span>
+        
+        
+	
+		<span class="post-wordcount hidden-xs" itemprop="wordCount">Word Count: 6.4k(words)</span>
+	
+	
+		<span class="post-readcount hidden-xs" itemprop="timeRequired">Read Count: 31(minutes)</span>
+	
+
+      </div>
+    </div>
+    <div class="article-entry marked-body" itemprop="articleBody">
+      
+        <p>这篇记录整理一次 Kubernetes 环境搭建和应用部署流程，内容覆盖 Docker、cri-dockerd、kubeadm、Calico、Metrics Server、Pod、Deployment、Service、LoadBalancer、Ingress、NFS、Helm、Rancher 和 WordPress。</p>
+<h2 id="一-目标"><a class="markdownIt-Anchor" href="#一-目标"></a> 一、目标</h2>
+<p>Kubernetes(简称K8S) 是容器和集群管理的标准。Kubernetes 集群是由多个计算机（可以是物理机、云主机或虚拟机）组成的一个独立系统，通过 Kubernetes 容器管理系统，实现部署、运维和伸缩 Docker 容器等功能。本次搭建主要覆盖以下内容：</p>
+<p>建立一个 Kubernetes 集群，包含一个主节点和两个工作节点，在集群上练习 kubectl 命令的基本操作。</p>
+<p>练习通过命令行和 YAML 创建 Pod、Deployment 和 Job，并掌握 HPA。</p>
+<p>练习为 Deployment 创建 Service，并通过 NodePort 暴露服务，再从客户端访问该服务。</p>
+<p>为集群安装 LoadBalancer 软件，准备可用子网，并通过 LoadBalancer 方式暴露服务。</p>
+<p>为集群安装 ingress-nginx 并验证。</p>
+<p>为集群准备 NFS Server，安装 NFS Subdir External Provisioner，然后创建 PersistentVolumeClaim 并验证。</p>
+<p>下载安装 Helm，用它安装 Rancher Dashboard，然后在 Dashboard 中管理集群并创建 WordPress 应用。</p>
+<p>说明：部分镜像如 busybox、perl 等通过其他服务器提前拉取并打包到本地，再导入本地虚拟机使用。</p>
+<h2 id="二-安装并配置docker"><a class="markdownIt-Anchor" href="#二-安装并配置docker"></a> 二、安装并配置Docker</h2>
+<p>先配置 Docker 的 apt repository。</p>
+<p>添加 Docker 官方 GPG key：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">$ sudo apt-get update</span><br><span class="line">$ sudo apt-get install ca-certificates curl</span><br><span class="line">$ sudo install -m 0755 -d /etc/apt/keyrings</span><br><span class="line">$ sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc</span><br><span class="line">$ sudo chmod a+r /etc/apt/keyrings/docker.asc</span><br><span class="line">Add the repository to Apt sources:</span><br><span class="line">$ echo &quot;deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release &amp;&amp; echo &quot;$VERSION_CODENAME&quot;) stable&quot; | sudo tee /etc/apt/sources.list.d/docker.list &gt; /dev/null</span><br><span class="line">$ sudo apt-get update</span><br><span class="line"># step 1: 安装必要的一些系统工具</span><br><span class="line">sudo apt-get update</span><br><span class="line">sudo apt-get -y install apt-transport-https ca-certificates curl software-properties-common</span><br><span class="line"># step 2: 安装GPG证书</span><br><span class="line">curl -fsSL https://mirrors.aliyun.com/docker-ce/linux/ubuntu/gpg | sudo apt-key add -</span><br><span class="line"># Step 3: 写入软件源信息</span><br><span class="line">sudo add-apt-repository &quot;deb [arch=amd64] https://mirrors.aliyun.com/docker-ce/linux/ubuntu $(lsb_release -cs) stable&quot;</span><br><span class="line"># Step 4: 更新并安装Docker-CE</span><br><span class="line">sudo apt-get -y update</span><br><span class="line">sudo apt-get -y install docker-ce</span><br></pre></td></tr></table></figure>
+<p>或者安装制定版本：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line">$ apt-cache madison docker-ce | awk &#x27;&#123; print $3 &#125;&#x27;</span><br><span class="line">$ VERSION_STRING=5:20.10.24~3-0~ubuntu-jammy</span><br><span class="line">$ sudo apt-get install docker-ce=$VERSION_STRING docker-ce-cli=$VERSION_STRING</span><br><span class="line"># apt list --installed | grep docker</span><br><span class="line">Set version lock</span><br><span class="line"># apt-mark hold docker-*  containerd.io</span><br><span class="line">List version locked software</span><br><span class="line"># apt-mark showhold</span><br><span class="line">Unlock the software</span><br><span class="line"># apt-mark unhold docker-*</span><br><span class="line"># vi /etc/docker/daemon.json</span><br><span class="line">&#123;</span><br><span class="line">&quot;oom-score-adjust&quot;: -1000,</span><br><span class="line">&quot;log-driver&quot;: &quot;json-file&quot;,</span><br><span class="line">&quot;log-opts&quot;: &#123;</span><br><span class="line">&quot;max-size&quot;: &quot;100m&quot;,</span><br><span class="line">&quot;max-file&quot;: &quot;5&quot;</span><br><span class="line">&#125;,</span><br><span class="line">&quot;exec-opts&quot;: [&quot;native.cgroupdriver=systemd&quot;],</span><br><span class="line">&quot;max-concurrent-downloads&quot;: 10,</span><br><span class="line">&quot;max-concurrent-uploads&quot;: 10,</span><br><span class="line">&quot;bip&quot;: &quot;169.254.123.1/24&quot;,</span><br><span class="line">&quot;dns&quot;: [&quot;202.201.0.133&quot;],</span><br><span class="line">&quot;storage-driver&quot;: &quot;overlay2&quot;,</span><br><span class="line">&quot;storage-opts&quot;: [&quot;overlay2.override_kernel_check=true&quot;]</span><br><span class="line">&#125;</span><br><span class="line">&#125;</span><br><span class="line"># systemctl daemon-reload</span><br><span class="line"># systemctl restart docker</span><br><span class="line"># mkdir /etc/systemd/system/docker.service.d</span><br><span class="line"># cd /etc/systemd/system/docker.service.d/</span><br><span class="line"># vi http_proxy.conf</span><br><span class="line">[Service]</span><br><span class="line">Environment=&quot;HTTP_PROXY=http://noc:8912027@cg.lzu.edu.cn:8080&quot;</span><br><span class="line">Environment=&quot;HTTPS_PROXY=http://noc:8912027@cg.lzu.edu.cn:8080&quot;</span><br><span class="line">Environment=&quot;NO_PROXY=localhost,127.0.0.1,harbor.lzu.edu.cn&quot;</span><br><span class="line"># systemctl daemon-reload</span><br><span class="line"># systemctl restart docker</span><br></pre></td></tr></table></figure>
+<p>这部分和 Docker 单独安装流程基本一致，下面保留最终安装效果，然后继续 Kubernetes 相关配置。</p>
+<p><img src="/images/posts/kubernetes-lab-notes/image-003.png" alt="操作截图 3" /></p>
+<p><img src="/images/posts/kubernetes-lab-notes/image-004.png" alt="操作截图 4" /></p>
+<p>Linux全局代理添加</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">export HTTP_PROXY=http://noc:8912027@cg.lzu.edu.cn:8080</span><br><span class="line">export HTTPS_PROXY=http://noc:8912027@cg.lzu.edu.cn:8080</span><br><span class="line">export NO_PROXY=localhost,127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,*.lzu.edu.cn</span><br><span class="line">export http_proxy=http://noc:8912027@cg.lzu.edu.cn:8080</span><br><span class="line">export https_proxy=http://noc:8912027@cg.lzu.edu.cn:8080</span><br><span class="line">export no_proxy=localhost,127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,*.lzu.edu.cn</span><br></pre></td></tr></table></figure>
+<p>安装cri-dockered</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># wget http://bigdata.cg.lzu.edu.cn/kubernetes/cri-dockerd_0.3.13.3-0.ubuntu-jammy_amd64.deb</span><br><span class="line"># dpkg -i cri-dockerd_0.3.13.3-0.ubuntu-jammy_amd64.deb</span><br><span class="line"># systemctl daemon-reload</span><br><span class="line"># systemctl start cri-docker</span><br></pre></td></tr></table></figure>
+<p>关闭swap</p>
+<p>命令行swapoff –a直接关闭</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># vi /etc/fstab  注释掉swap引导项</span><br></pre></td></tr></table></figure>
+<p>查看br_netfilter模块和overlay是否被内核加载</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"># lsmod | grep br_netfilter</span><br><span class="line"># lsmod | grep overlay</span><br><span class="line"># modprobe br_netfilter</span><br><span class="line"># modprobe overlay</span><br><span class="line"># cat &lt;&lt;EOF |  tee /etc/modules-load.d/k8s.conf</span><br><span class="line">overlay</span><br><span class="line">br_netfilter</span><br><span class="line">EOF</span><br><span class="line"># cat &lt;&lt;EOF | sudo tee /etc/sysctl.d/k8s.conf</span><br><span class="line">net.bridge.bridge-nf-call-iptables  = 1</span><br><span class="line">net.bridge.bridge-nf-call-ip6tables = 1</span><br><span class="line">net.ipv4.ip_forward                 = 1</span><br><span class="line">EOF</span><br><span class="line"># sysctl --system</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-005.png" alt="操作截图 5" /></p>
+<p>set apt source of aliyun for kubernetes</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"># curl -s https://mirrors.aliyun.com/kubernetes/apt/doc/apt-key.gpg | apt-key add</span><br><span class="line"># echo &quot;deb https://mirrors.aliyun.com/kubernetes/apt/ kubernetes-xenial main&quot; &gt; /etc/apt/sources.list.d/k8s.list</span><br><span class="line"># apt-get update</span><br><span class="line"># apt-cache madison kubelet</span><br><span class="line"># apt install kubeadm=1.26.8-00  kubelet=1.26.8-00  kubectl=1.26.8-00 -y</span><br><span class="line"># systemctl enable kubelet</span><br><span class="line"># apt-mark hold kubelet kubeadm kubectl</span><br><span class="line"># source &lt;(kubectl completion bash)</span><br><span class="line"># echo &#x27;source &lt;(kubectl completion bash)&#x27; &gt;&gt;~/.bashrc</span><br><span class="line"># vi /etc/docker/daemon.json</span><br><span class="line">&#123;</span><br><span class="line">&quot;exec-opts&quot;: [&quot;native.cgroupdriver=systemd&quot;],</span><br><span class="line">&#125;</span><br><span class="line"># vi /etc/systemd/system/kubelet.service.d/10-kubeadm.conf</span><br><span class="line">[Service]</span><br><span class="line">Environment=&quot;KUBELET_KUBECONFIG_ARGS=--bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf --kubeconfig=/etc/kubernetes/kubelet.conf --cgroup-driver=systemd&quot;</span><br><span class="line"># vi /usr/lib/systemd/system/cri-docker.service</span><br><span class="line">[Service]</span><br><span class="line">ExecStart=/usr/bin/cri-dockerd --pod-infra-container-image=registry.aliyuncs.com/google_containers/pause:3.9 --container-runtime-endpoint fd://</span><br><span class="line"># containerd config default &gt; /etc/containerd/config.toml</span><br><span class="line">Reboot the service:</span><br><span class="line">systemctl daemon-reload</span><br><span class="line">systemctl restart containerd.service</span><br><span class="line">systemctl restart docker.service</span><br><span class="line">systemctl restart cri-docker</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-006.png" alt="操作截图 6" /></p>
+<h2 id="三-安装kubernetes"><a class="markdownIt-Anchor" href="#三-安装kubernetes"></a> 三、安装kubernetes</h2>
+<p>control node:</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubeadm version</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-007.png" alt="操作截图 7" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"># kubeadm init --apiserver-advertise-address=192.168.111.135 --control-plane-endpoint=192.168.111.135 \</span><br><span class="line">--pod-network-cidr=10.244.0.0/16 --service-cidr=10.245.0.0/16  \</span><br><span class="line">--image-repository registry.aliyuncs.com/google_containers \</span><br><span class="line">--ignore-preflight-errors=Swap  \</span><br><span class="line">--kubernetes-version=v1.26.8  \</span><br><span class="line">--cri-socket unix:///var/run/cri-dockerd.sock</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-008.png" alt="操作截图 8" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># mkdir -p $HOME/.kube</span><br><span class="line"># cp -i /etc/kubernetes/admin.conf $HOME/.kube/config</span><br><span class="line"># chown $(id -u):$(id -g) $HOME/.kube/config</span><br><span class="line"># kubectl get node</span><br></pre></td></tr></table></figure>
+<p>这里显示了一个控制节点docker，因为我使用的是docker主机名</p>
+<p><img src="/images/posts/kubernetes-lab-notes/image-009.png" alt="操作截图 9" /></p>
+<p>worker node 加入集群（需要将ip地址改为对应的worker节点虚拟机）:</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># kubeadm join 192.168.101.100:6443 --token 7k09zz.6ogjsk85qsqbc8wx \</span><br><span class="line">--discovery-token-ca-cert-hash sha256:391c3cb957ec1a9e2f67b1516768d69029e712f4ca98e5b49d9cd8b651dde93d \</span><br><span class="line">--control-plane  \</span><br><span class="line">--cri-socket unix:///var/run/cri-dockerd.sock</span><br></pre></td></tr></table></figure>
+<p>由于当前设备只能启动一台虚拟机，这里没有继续展示 worker 节点加入过程，后续操作在单节点控制平面上完成。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl describe nodes docker</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-010.png" alt="操作截图 10" /></p>
+<p>Delete the tain for control node in single node environment:</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># kubectl taint node docker node-role.kubernetes.io/control-plane-</span><br><span class="line"># kubectl taint node docker node.kubernetes.io/not-ready-</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-011.png" alt="操作截图 11" /></p>
+<p>安装calico</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"># wget https://raw.githubusercontent.com/projectcalico/calico/v3.27.2/manifests/tigera-operator.yaml</span><br><span class="line"># wget https://raw.githubusercontent.com/projectcalico/calico/v3.27.2/manifests/custom-resources.yaml</span><br><span class="line"># vi custom-resources.yaml</span><br><span class="line">ipPools:</span><br><span class="line">- blockSize: 24</span><br><span class="line">cidr: 10.244.0.0/16</span><br><span class="line"># kubectl create -f tigera-operator.yaml</span><br><span class="line"># kubectl create -f custom-resources.yaml</span><br><span class="line"># kubectl get ns</span><br><span class="line"># kubectl get node -o wide</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-012.png" alt="操作截图 12" /></p>
+<p>安装metric-server</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"># wget http://bigdata.cg.lzu.edu.cn/kubernetes/metrics-server-v0.7.1.tar</span><br><span class="line"># docker image load -i metrics-server-v0.7.1.tar</span><br><span class="line"># vi ./metrics-server/manifests/base/deployment.yaml</span><br><span class="line">containers:</span><br><span class="line">- name: metrics-server</span><br><span class="line">image: gcr.io/k8s-staging-metrics-server/metrics-server:v0.7.1</span><br><span class="line">imagePullPolicy: IfNotPresent</span><br><span class="line">command:</span><br><span class="line">- /metrics-server</span><br><span class="line">- --kubelet-insecure-tls</span><br><span class="line">- --kubelet-preferred-address-types=InternalIP</span><br><span class="line"># kubectl apply -k ./metrics-server/manifests/base/</span><br><span class="line"># kubectl get pod -n kube-system | grep metric</span><br><span class="line"># kubectl get service -A</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-013.png" alt="操作截图 13" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># kubectl get pod -A</span><br><span class="line"># kubectl get pods -n kube-system -o wide</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-014.png" alt="操作截图 14" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># kubectl top nodes</span><br><span class="line"># kubectl top pod -n kube-system</span><br></pre></td></tr></table></figure>
+<p>可以看到所有namespace都成功运行，配置成功。</p>
+<p><img src="/images/posts/kubernetes-lab-notes/image-015.png" alt="操作截图 15" /></p>
+<h2 id="四-练习kubectl基本命令"><a class="markdownIt-Anchor" href="#四-练习kubectl基本命令"></a> 四、练习kubectl基本命令</h2>
+<h3 id="41-pod-基本操作"><a class="markdownIt-Anchor" href="#41-pod-基本操作"></a> 4.1 pod 基本操作</h3>
+<p>查看kubernetes集群信息</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl cluster-info</span><br></pre></td></tr></table></figure>
+<p>查看kubernetes版本</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># kubectl version</span><br><span class="line"># kubectl version --short</span><br></pre></td></tr></table></figure>
+<p>查看kubernetes所支持的api-version</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl api-versions</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-016.png" alt="操作截图 16" /></p>
+<p>删除节点及重新加入</p>
+<p>步骤1、通过kubeadm drain命令把节点设置为维护模式，会把已经在该节点上运行的业务pod驱逐到其他节点运行</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># kubectl drain node03 --delete-emptydir-data --force --ignore-daemonsets</span><br><span class="line"># kubectl get node</span><br></pre></td></tr></table></figure>
+<p>步骤2、删除这个节点</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl delete nodes node03</span><br></pre></td></tr></table></figure>
+<p>步骤3、清空节点上的配置</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubeadm reset（不管是master还是worker节点清空kubernetes配置都使用该命令）</span><br></pre></td></tr></table></figure>
+<p>v1.24以后使用docker-ce时需添加–cri-socket unix:///var/run/cri-dockerd.sock</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubeadm reset --cri-socket unix:///var/run/cri-dockerd.sock</span><br></pre></td></tr></table></figure>
+<p>步骤4、重新加入集群</p>
+<p>配置namespace练习</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># kubectl get namespaces</span><br><span class="line"># kubectl get ns</span><br><span class="line"># kubectl create namespace ns1</span><br><span class="line"># kubectl delete namespaces ns1</span><br><span class="line"># kubectl config set-context --current --namespace=default</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-017.png" alt="操作截图 17" /></p>
+<p>查看节点以及服务</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># kubectl get service -A</span><br><span class="line"># kubectl get node</span><br><span class="line"># kubectl get service -A</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-018.png" alt="操作截图 18" /></p>
+<h2 id="五-使用命令行和yaml文件创建pod"><a class="markdownIt-Anchor" href="#五-使用命令行和yaml文件创建pod"></a> 五、使用命令行和yaml文件创建pod</h2>
+<h3 id="51-pod创建"><a class="markdownIt-Anchor" href="#51-pod创建"></a> 5.1 Pod创建</h3>
+<p>查看pod</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># kubectl get pod</span><br><span class="line"># kubectl get pod -n kube-system</span><br><span class="line"># kubectl get pod --all-namespaces</span><br><span class="line"># kubectl get pod –A</span><br></pre></td></tr></table></figure>
+<p>创建pod，创建pod时可带诸多参数，运行kubectl run –h查看更多即可</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">kubectl run NAME --image=image  [--env=&quot;key=value&quot;]  [--port=port]  [--labels=label=value]  [--dry-run=server|client] [--overrides=inline-json] [--command] -- [COMMAND] [args...] [options]</span><br><span class="line"># kubectl run pod1 --image=nginx</span><br></pre></td></tr></table></figure>
+<p>删除pod，增加参–force可加快删除速度</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl delete pod pod1</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-019.png" alt="操作截图 19" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># kubectl run pod1 --image=nginx --port=80</span><br><span class="line"># 或kubectl run pod1 --image=nginx --image-pull-policy=IfNotPresent</span><br></pre></td></tr></table></figure>
+<p>集群内每一个pod都会获得一个地址(pod地址是相对临时的，service地址才是相对稳定的)</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl get pod -o wide</span><br></pre></td></tr></table></figure>
+<p>通过IP访问pod</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># curl http://10.244.239.9</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-020.png" alt="操作截图 20" /></p>
+<p><img src="/images/posts/kubernetes-lab-notes/image-021.png" alt="操作截图 21" /></p>
+<p>在pod里执行命令</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl exec  pod1 -- ls /usr/share/nginx/html</span><br></pre></td></tr></table></figure>
+<p>物理机和pod互拷文件</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># kubectl cp /etc/hosts pod1:/usr/share/nginx/html/</span><br><span class="line"># kubectl cp pod1:/usr/share/nginx/html/hosts /root/hosts</span><br><span class="line"># kubectl cp pod1:/usr/share/nginx/html/ /opt/</span><br></pre></td></tr></table></figure>
+<p>进入pod里并获取bash</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># kubectl exec -it pod1 -- bash</span><br><span class="line">root@pod1:/#</span><br><span class="line">root@pod1:/# exit</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-022.png" alt="操作截图 22" /></p>
+<p>如果一个pod有多个容器默认进入的是第一个容器，想进入指定容器用-c指定容器名。</p>
+<p>查看pod里的输出，如果一个pod有多个容器，需要使用-c指定查看哪个容器的输出。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl logs pod1</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-023.png" alt="操作截图 23" /></p>
+<p>使用yaml的方式来创建pod可以在文件里指定更多的属性。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># mkdir pod ; cd pod</span><br><span class="line"># kubectl run pod2 --image=nginx --dry-run=client -o yaml &gt; pod2.yaml</span><br><span class="line"># cat pod2.yaml</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-024.png" alt="操作截图 24" /></p>
+<p>*YAML文件写法是分级的，子级和父级之间要缩进2个空格(不能按Tab键)，子级的第一个位置可以以“-”开头，这个“-”和父级对齐。</p>
+<p>YAML文件里第一级常见参数主要有以下四个：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">apiVersion: 指定pod的apiVersion，固定值v1</span><br><span class="line">kind: 指定当前yaml要创建的类型是pod，与apiVersion值是对应的</span><br><span class="line">metadata:用于指定pod的元数据信息，包括pod名、pod标签和所在命名空间等信息</span><br><span class="line">spec:定义容器及各种策略</span><br><span class="line"># vi pod3.yaml</span><br><span class="line">apiVersion: v1</span><br><span class="line">kind: Pod</span><br><span class="line">metadata:</span><br><span class="line">creationTimestamp: null</span><br><span class="line">labels:</span><br><span class="line">run: pod3</span><br><span class="line">name: pod3</span><br><span class="line">spec:</span><br><span class="line">containers:</span><br><span class="line">- command: [&quot;sh&quot;,&quot;-c&quot;,&quot;echo aa;sleep 1000&quot;]</span><br><span class="line">image: nginx</span><br><span class="line">imagePullPolicy: IfNotPresent</span><br><span class="line">name: c1</span><br><span class="line">resources: &#123;&#125;</span><br><span class="line">- image: nginx</span><br><span class="line">imagePullPolicy: IfNotPresent</span><br><span class="line">name: c2</span><br><span class="line">dnsPolicy: ClusterFirst</span><br><span class="line">restartPolicy: Always</span><br><span class="line">status: &#123;&#125;</span><br></pre></td></tr></table></figure>
+<p>使用YAML文件创建pod：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># kubectl apply -f pod3.yaml</span><br><span class="line"># kubectl get pod</span><br><span class="line"># kubectl logs pod3 -c c1</span><br><span class="line"># kubectl logs pod3 -c c2</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-025.png" alt="操作截图 25" /></p>
+<p><img src="/images/posts/kubernetes-lab-notes/image-026.png" alt="操作截图 26" /></p>
+<p>查看pod属性</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl describe pod pod3</span><br></pre></td></tr></table></figure>
+<p>进入pod并获取bash</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># kubectl exec -it pod3 -- bash</span><br><span class="line"># kubectl exec -it pod3 -c c2 -- bash</span><br></pre></td></tr></table></figure>
+<p>删除pod</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl delete -f pod3.yaml</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-027.png" alt="操作截图 27" /></p>
+<p><img src="/images/posts/kubernetes-lab-notes/image-028.png" alt="操作截图 28" /></p>
+<p>创建deployment</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl create deployment nginx --image=nginx --replicas=2</span><br></pre></td></tr></table></figure>
+<p>查看deployment</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl get deployments.apps</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-029.png" alt="操作截图 29" /></p>
+<p>修改镜像下载策略以提高速度</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># kubectl edit deployments.apps nginx</span><br><span class="line">imagePullPolicy: Always</span><br></pre></td></tr></table></figure>
+<p>修改副本数</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl scale deployment nginx --replicas=4</span><br></pre></td></tr></table></figure>
+<p>删除deployment</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl delete deployments.apps nginx</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-030.png" alt="操作截图 30" /></p>
+<p>通过yaml方式创建depoyment</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># kubectl create deployment nginx --image=nginx --dry-run=client -o yaml &gt; d1.yaml</span><br><span class="line"># vi d1.yaml</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-031.png" alt="操作截图 31" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl apply -f d1.yaml</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-032.png" alt="操作截图 32" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># kubectl get deployments.apps</span><br><span class="line"># kubectl get deployments.apps -o wide</span><br><span class="line"># kubectl get pod</span><br><span class="line"># kubectl get pod -o wide</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-033.png" alt="操作截图 33" /></p>
+<p>删除一个pod后，会自动创建出一个新的pod，以满足replicas数。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># kubectl delete pod nginx-57cc89bc77-2g66z</span><br><span class="line"># kubectl get pod</span><br></pre></td></tr></table></figure>
+<p>删除deployment</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl delete -f d1.yaml</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-034.png" alt="操作截图 34" /></p>
+<p>当deployment的pod负载较大，需要更多的pod来分摊负载，就需要管理员手动去调整副本数。</p>
+<p>可以设置让k8s根据pod负载情况自动去调整deployment里pod的副本数，这可以通过水平自动更新HPA(Horizontal Pod Autoscalers)来实现,通过检查pod的cpu负载通知deployment让其自动更新pod数量。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">kubectl autoscale (-f FILENAME | TYPE NAME | TYPE/NAME) [--min=MINPODS] --max=MAXPODS [--cpu-percent=CPU]</span><br><span class="line">--cpu-percent如果不写默认是80.</span><br></pre></td></tr></table></figure>
+<p>查看当前是否有hpa配置</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl get hpa</span><br></pre></td></tr></table></figure>
+<p>创建hpa</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># kubectl get deployments.apps</span><br><span class="line"># kubectl autoscale deployment nginx --min=2  --max=10</span><br></pre></td></tr></table></figure>
+<p>查看</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># kubectl get horizontalpodautoscalers.autoscaling</span><br><span class="line"># kubectl scale deployment nginx --replicas=1</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-035.png" alt="操作截图 35" /></p>
+<p>删除hpa</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl delete horizontalpodautoscalers.autoscaling nginx</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-036.png" alt="操作截图 36" /></p>
+<p>修改deployment的配置，设置每个容器的资源限制</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"># kubectl edit deployments.apps nginx</span><br><span class="line">- image: nginx</span><br><span class="line">imagePullPolicy: IfNotPresent</span><br><span class="line">name: nginx</span><br><span class="line">resources:</span><br><span class="line">requests:</span><br><span class="line">cpu: 100m</span><br></pre></td></tr></table></figure>
+<p>创建deployment副本数为1个</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl scale deployment nginx --replicas=1</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-037.png" alt="操作截图 37" /></p>
+<p>创建新的HPA，使得每个pod的cpu数最大使用率不超过70%</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl autoscale deployment nginx --min=1 --max=5 --cpu-percent=70</span><br></pre></td></tr></table></figure>
+<p>为deployment创建一个服务，类型为NodePort</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># kubectl expose deployment nginx --port=80 --target-port=80 --type=NodePort</span><br><span class="line"># kubectl get service</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-038.png" alt="操作截图 38" /></p>
+<p>在任一客户端安装ab测试对其进行压测：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># yum install httpd-tools –y   (# apt install apache2-utils)</span><br><span class="line"># ab -t 600 -n 1000000 -c 1000 http://192.168.111.135:30267/index.html</span><br></pre></td></tr></table></figure>
+<p>随着请求CPU负载增加pod自动扩展。</p>
+<p>负载降低后pod数不是立刻减少，要等到一段时间，默认是5m，目的是防止pod数的抖动。</p>
+<p>升级镜像可以通过以下三种方法：</p>
+<h3 id="1-kubectl-edit-deploy"><a class="markdownIt-Anchor" href="#1-kubectl-edit-deploy"></a> 1、kubectl edit deploy</h3>
+<h3 id="2-修改yaml文件然后执行kubectl-apply-f-yaml文件"><a class="markdownIt-Anchor" href="#2-修改yaml文件然后执行kubectl-apply-f-yaml文件"></a> 2、修改yaml文件，然后执行kubectl apply -f yaml文件</h3>
+<h3 id="3-命令行方式修改-命令行方式可以记录镜像变更信息回滚方便"><a class="markdownIt-Anchor" href="#3-命令行方式修改-命令行方式可以记录镜像变更信息回滚方便"></a> 3、命令行方式修改。命令行方式可以记录镜像变更信息，回滚方便。</h3>
+<p>命令行升级deployment里镜像的语法：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">kubectl set image deploy/名字  容器名=镜像  &lt;--record&gt;</span><br><span class="line"># kubectl set image deploy/nginx nginx=nginx:latest</span><br><span class="line"># kubectl set image deploy/nginx nginx=nginx:1.21</span><br><span class="line"># kubectl get deployments.apps -o wide</span><br><span class="line"># kubectl set image deploy/nginx nginx=nginx:1.20</span><br><span class="line"># kubectl get deployments.apps -o wide</span><br></pre></td></tr></table></figure>
+<p>查看镜像变化过程，由于没有记录无法查看，</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl rollout history deployment nginx</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-039.png" alt="操作截图 39" /></p>
+<p>更新镜像时增加–record选项记录更新以方便镜像回滚。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># kubectl set image deploy/nginx nginx=nginx:1.20  --record</span><br><span class="line"># kubectl set image deploy/nginx nginx=nginx:1.21  --record</span><br><span class="line"># kubectl rollout history deployment nginx</span><br><span class="line"># kubectl get deployments.apps nginx -o wide</span><br></pre></td></tr></table></figure>
+<p>如果变更后的镜像有问题，我们可以把镜像回滚到变更之前的版本，回滚的语法是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">kubectl rollout undo deployment 名字 --to-revision=版本</span><br><span class="line"># kubectl rollout undo deployment nginx --to-revision=5</span><br><span class="line"># kubectl get deployments.apps nginx -o wide</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-040.png" alt="操作截图 40" /></p>
+<p>对deployment可能会有多个pod，使用滚动更新不是一次性全部更新，而是先更新几个pod镜像，更新完成后再更新几个，直至将所有pod全部更新完毕。</p>
+<p>rollingUpgrade主要涉及两个参数：</p>
+<h3 id="1-maxsurge指定一次创建几个pod可以是百分比也可以是具体数字"><a class="markdownIt-Anchor" href="#1-maxsurge指定一次创建几个pod可以是百分比也可以是具体数字"></a> 1、maxSurge：指定一次创建几个pod，可以是百分比，也可以是具体数字</h3>
+<h3 id="2-maxunavailable用来指定最多删除几个pod可以是百分比也可以是具体数字"><a class="markdownIt-Anchor" href="#2-maxunavailable用来指定最多删除几个pod可以是百分比也可以是具体数字"></a> 2、maxUnavailable：用来指定最多删除几个pod，可以是百分比，也可以是具体数字</h3>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"># kubectl edit deployments.apps nginx</span><br><span class="line">strategy:</span><br><span class="line">rollingUpdate:</span><br><span class="line">maxSurge: 25%</span><br><span class="line">maxUnavailable: 25%</span><br><span class="line">type: RollingUpdate</span><br></pre></td></tr></table></figure>
+<p>默认为25%。可修改为1进行查看，即变更镜像时删除一个创建一个。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># kubectl scale deployment nginx --replicas=5</span><br><span class="line"># kubectl set image deploy/nginx nginx=nginx:1.21</span><br><span class="line"># kubectl set image deploy/nginx nginx=nginx:1.20</span><br><span class="line"># kubectl get pod</span><br></pre></td></tr></table></figure>
+<p>因为docker现在被墙了，其他版本镜像无法拉取</p>
+<p><img src="/images/posts/kubernetes-lab-notes/image-041.png" alt="操作截图 41" /></p>
+<h3 id="52-job-练习-计算圆周率小数点后-2000-位"><a class="markdownIt-Anchor" href="#52-job-练习-计算圆周率小数点后-2000-位"></a> 5.2 job 练习： 计算圆周率小数点后 2000 位</h3>
+<p>job：执行一次性任务，如数据处理分析测试运算等。</p>
+<p>创建一个yaml文件</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl create job job3 --image=busybox --dry-run=client -o yaml -- sh -c &quot;echo hello &amp;&amp; sleep 30&quot; &gt; job3.yaml</span><br></pre></td></tr></table></figure>
+<p>对生成的yaml进行修改添加imagePullPolicy:IfNotPresent后创建job</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl apply -f job3.yaml</span><br></pre></td></tr></table></figure>
+<p>当任务完成时job完成，pod状态变为Completed。</p>
+<p>删除job</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl delete jobs.batch job3</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-042.png" alt="操作截图 42" /></p>
+<p>job练习：计算圆周率小数点后2000位</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># kubectl create job job2 --image=perl -- perl -Mbignum=bpi -wle &#x27;print bpi(2000)&#x27;</span><br><span class="line"># kubectl get pod</span><br><span class="line"># kubectl get jobs.batch</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-043.png" alt="操作截图 43" /></p>
+<p><img src="/images/posts/kubernetes-lab-notes/image-044.png" alt="操作截图 44" /></p>
+<p>查看计算结果</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl logs job2-le3gv</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-045.png" alt="操作截图 45" /></p>
+<h3 id="53-cronjob"><a class="markdownIt-Anchor" href="#53-cronjob"></a> 5.3 cronjob</h3>
+<p>cronjob是周期性的、循环的。（linux上使用cron周期性执行任务）</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl get cronjobs.batch</span><br></pre></td></tr></table></figure>
+<p>创建cronjobs</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl create cronjob NAME --image=image --schedule=‘cron表达式&#x27; -- [COMMAND] [args...] [flags] [options]</span><br></pre></td></tr></table></figure>
+<p>创建一个每一分钟执行一次的cronjob</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl create cronjob cjob1 --image=busybox --schedule=&quot;*/1 * * * *&quot; --dry-run=client  -o yaml -- /bin/sh -c &quot;echo hello &amp;&amp; sleep 30&quot; &gt; cjob1.yaml</span><br></pre></td></tr></table></figure>
+<p>修改添加镜像下载策略imagePullPolicy: IfNotPresent</p>
+<p>创建cronjob</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># kubectl apply -f cjob1.yaml</span><br><span class="line"># kubectl get cronjobs.batch</span><br><span class="line"># kubectl get pod</span><br></pre></td></tr></table></figure>
+<p>每隔1分钟生成一个pod，该pod完成任务sleep 30后就结束。</p>
+<p>Completed pod数由选项successfulJobsHistoryLimit决定，默认为3。</p>
+<p>删除cronjob</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl delete cronjobs.batch cjob1</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-046.png" alt="操作截图 46" /></p>
+<h3 id="54-statefulsets"><a class="markdownIt-Anchor" href="#54-statefulsets"></a> 5.4 StatefulSets</h3>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line"># vi headless-nginx.yaml</span><br><span class="line">apiVersion: v1</span><br><span class="line">kind: Service</span><br><span class="line">metadata:</span><br><span class="line">name: nginx</span><br><span class="line">labels:</span><br><span class="line">app: nginx</span><br><span class="line">spec:</span><br><span class="line">ports:</span><br><span class="line">- port: 80</span><br><span class="line">name: web</span><br><span class="line">clusterIP: None</span><br><span class="line">selector:</span><br><span class="line">app: nginx</span><br><span class="line"># kubectl apply -f headless-nginx.yaml</span><br><span class="line"># vi stateful-nginx.yaml</span><br><span class="line">apiVersion: apps/v1</span><br><span class="line">kind: StatefulSet</span><br><span class="line">metadata:</span><br><span class="line">name: nginx</span><br><span class="line">spec:</span><br><span class="line">selector:</span><br><span class="line">matchLabels:</span><br><span class="line">app: nginx</span><br><span class="line">serviceName: &quot;nginx&quot;</span><br><span class="line">replicas: 3</span><br><span class="line">minReadySeconds: 10</span><br><span class="line">template:</span><br><span class="line">metadata:</span><br><span class="line">labels:</span><br><span class="line">app: nginx</span><br><span class="line">spec:</span><br><span class="line">terminationGracePeriodSeconds: 10</span><br><span class="line">containers:</span><br><span class="line">- name: nginx</span><br><span class="line">image: nginx:latest</span><br><span class="line">imagePullPolicy: IfNotPresent</span><br><span class="line">ports:</span><br><span class="line">- containerPort: 80</span><br><span class="line">name: web</span><br><span class="line"># kubectl apply -f stateful-nginx.yaml</span><br></pre></td></tr></table></figure>
+<h2 id="六-使用命令行和yaml文件创建deployment-and-job"><a class="markdownIt-Anchor" href="#六-使用命令行和yaml文件创建deployment-and-job"></a> 六、使用命令行和yaml文件创建deployment and job</h2>
+<h3 id="61-deployment"><a class="markdownIt-Anchor" href="#61-deployment"></a> 6.1 deployment</h3>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># kubectl create deployment web1 --image=nginx --dry-run=client -o yaml &gt; web1.yaml</span><br><span class="line"># vi web1.yaml</span><br><span class="line"># kubectl apply -f web1.yaml</span><br><span class="line"># kubectl get deployments.apps -o wide</span><br><span class="line"># kubectl get pod -o wide</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-047.png" alt="操作截图 47" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl expose deployment nginx --name=web1 --port=80 --target-port=80</span><br></pre></td></tr></table></figure>
+<p>不使用–name指定服务名，则保持和deployment名字一致。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">--port指服务端口， --target-port是后端pod运行服务的端口。</span><br></pre></td></tr></table></figure>
+<p>查看服务</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># kubectl get svc</span><br><span class="line"># kubectl get service -o wide</span><br></pre></td></tr></table></figure>
+<p>查看详细信息</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl describe service web1</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-048.png" alt="操作截图 48" /></p>
+<p>使用命令生成yaml文件</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl expose deployment web1 --name=web1 --port=80 --target-port=80 --dry-run=client -o yaml &gt; svc1.yaml</span><br></pre></td></tr></table></figure>
+<p>查看yaml文件</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># vi svc1.yaml</span><br></pre></td></tr></table></figure>
+<p>使用yaml文件创建service</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl apply -f svc1.yaml</span><br></pre></td></tr></table></figure>
+<p>查看</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl get svc</span><br></pre></td></tr></table></figure>
+<p>删除服务</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl delete -f svc1.yaml</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-049.png" alt="操作截图 49" /></p>
+<h3 id="62-服务发布"><a class="markdownIt-Anchor" href="#62-服务发布"></a> 6.2 服务发布</h3>
+<p>外部主机访问集群服务主要有三种方式：</p>
+<h3 id="1-nodeport"><a class="markdownIt-Anchor" href="#1-nodeport"></a> 1、NodePort</h3>
+<p>将服务映射到物理机(集群中所有节点)的某个端口提供外界访问</p>
+<h3 id="2-loadbalancer"><a class="markdownIt-Anchor" href="#2-loadbalancer"></a> 2、LoadBalancer</h3>
+<p>使用LoadBalancer给svc分配一个地址(外界可访问地址)，svc直接对外提供服务。</p>
+<p>需要安装部署第三方工具metallb。</p>
+<h3 id="3-ingress"><a class="markdownIt-Anchor" href="#3-ingress"></a> 3、ingress</h3>
+<p>使用nginx-ingress实现反向代理，通过域名对外提供服务。</p>
+<p>需要安装部署nginx-ingress控制器。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># kubectl expose deployment web1 --name=web1 --port 80 --type=NodePort</span><br><span class="line"># kubectl get svc</span><br><span class="line"># kubectl edit svc web1</span><br></pre></td></tr></table></figure>
+<p>Yaml文件为:</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">apiVersion: v1</span><br><span class="line">kind: Service</span><br><span class="line">metadata:</span><br><span class="line">creationTimestamp: null</span><br><span class="line">labels:</span><br><span class="line">app: web1</span><br><span class="line">name: web1</span><br><span class="line">spec:</span><br><span class="line">ports:</span><br><span class="line">- port: 80</span><br><span class="line">protocol: TCP</span><br><span class="line">targetPort: 80</span><br><span class="line">selector:</span><br><span class="line">app: web1</span><br><span class="line">type: NodePort</span><br><span class="line">status:</span><br><span class="line">loadBalancer: &#123;&#125;</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-050.png" alt="操作截图 50" /></p>
+<h2 id="七-安装loadblancer"><a class="markdownIt-Anchor" href="#七-安装loadblancer"></a> 七、安装loadblancer</h2>
+<p>使用LoadBalancer需要安装部署第三方工具metalllb。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl edit configmap -n kube-system kube-proxy</span><br></pre></td></tr></table></figure>
+<p>修改 strictARP: true</p>
+<p>下载部署metallb所需yaml文件</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># mkdir ~/metallb</span><br><span class="line"># cd ~/metallb/</span><br><span class="line"># wget https://raw.githubusercontent.com/metallb/metallb/v0.14.5/config/manifests/metallb-native.yaml</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-051.png" alt="操作截图 51" /></p>
+<p>部署metallb</p>
+<p>可以修改配置文件添加imagePullPolicy: IfNotPresent然后进行部署</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl apply -f metallb-native.yaml</span><br></pre></td></tr></table></figure>
+<p>查看</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># kubectl get deployments.apps -n metallb-system</span><br><span class="line"># kubectl get daemonsets.apps  -n metallb-system</span><br><span class="line"># kubectl get pod -n metallb-system</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-052.png" alt="操作截图 52" /></p>
+<p>创建一个外部地址池</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"># vi ipaddresspool.yaml</span><br><span class="line">apiVersion: metallb.io/v1beta1</span><br><span class="line">kind: IPAddressPool</span><br><span class="line">metadata:</span><br><span class="line">namespace: metallb-system</span><br><span class="line">name: doc-l2-label</span><br><span class="line">labels:</span><br><span class="line">zone: east</span><br><span class="line">spec:</span><br><span class="line">addresses:</span><br><span class="line">- 192.168.111.135/24</span><br><span class="line"># kubectl apply -f ipaddresspool.yaml</span><br><span class="line"># kubectl get ipaddresspools.metallb.io  -n metallb-system</span><br></pre></td></tr></table></figure>
+<p>修改地址池范围，指定可用地址</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># kubectl edit ipaddresspools.metallb.io  -n metallb-system</span><br><span class="line">spec:</span><br><span class="line">addresses:</span><br><span class="line">- 192.168.100.210 - 192.168.100.219</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-053.png" alt="操作截图 53" /></p>
+<p>发布地址池：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># vi l2advertisement.yaml</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-054.png" alt="操作截图 54" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># kubectl apply -f l2advertisement.yaml</span><br><span class="line"># kubectl get l2advertisements.metallb.io -n metallb-system</span><br></pre></td></tr></table></figure>
+<p>创建一个pod</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl run pod1 --image=nginx --image-pull-policy=IfNotPresent</span><br></pre></td></tr></table></figure>
+<p>为pod1创建一个名为svc1类型为LoadBalancer的服务</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># kubectl expose pod pod1 --name=svc1 --port=80 --type=LoadBalancer</span><br><span class="line"># kubectl get svc</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-055.png" alt="操作截图 55" /></p>
+<p>访问EXTERNAL-IP即可。</p>
+<p>删除svc1和pod1</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># kubectl delete svc svc1</span><br><span class="line"># kubectl delete pod pod1</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-056.png" alt="操作截图 56" /></p>
+<h2 id="八-安装ingress-nginx"><a class="markdownIt-Anchor" href="#八-安装ingress-nginx"></a> 八、安装ingress-nginx</h2>
+<p>官网：<a target="_blank" rel="noopener" href="https://kubernetes.github.io/ingress-nginx/">https://kubernetes.github.io/ingress-nginx/</a></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># mkdir ~/ingress-nginx</span><br><span class="line"># cd ~/ingress-nginx/</span><br><span class="line"># wget http://bigdata.cg.lzu.edu.cn/kubernetes/ingress-nginx/deploy.yaml</span><br><span class="line"># cat  deploy.yaml | grep image</span><br></pre></td></tr></table></figure>
+<p>所需镜像国内网络无法下载，从国外下载打包回来。并修改yaml文件中镜像名称和实际镜像名称一致。</p>
+<p>校内镜像下载： wget <a target="_blank" rel="noopener" href="http://bigdata.cg.lzu.edu.cn/kubernetes/ingress-nginx-v1.7.0.tar">http://bigdata.cg.lzu.edu.cn/kubernetes/ingress-nginx-v1.7.0.tar</a></p>
+<p>下载镜像文件并在所有节点加载镜像。并根据实际镜像tag修改deploy.yaml文件。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># kubectl apply -f deploy.yaml</span><br><span class="line"># kubectl get ns</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-057.png" alt="操作截图 57" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># kubectl get pod -n ingress-nginx</span><br><span class="line"># kubectl get svc -n ingress-nginx</span><br><span class="line"># kubectl get configmaps -n ingress-nginx</span><br></pre></td></tr></table></figure>
+<p>修改pod副本数为worker数</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl scale deployment ingress-nginx-controller -n ingress-nginx --replicas=2</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-058.png" alt="操作截图 58" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl get svc -n ingress-nginx</span><br></pre></td></tr></table></figure>
+<p>创建一个名为pod1的pod</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl run pod1 --image=nginx --image-pull-policy=IfNotPresent</span><br></pre></td></tr></table></figure>
+<p>为这个pod1创建名为pod1的svc</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl expose pod pod1 --name=pod1 --port 80</span><br></pre></td></tr></table></figure>
+<p>创建ingress策略</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># kubectl create ingress pod1.lzu.edu.cn --class=nginx --rule=pod1.lzu.edu.cn/*=pod1:80</span><br><span class="line"># kubectl get ingress</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-059.png" alt="操作截图 59" /></p>
+<p>手动添加解析后访问</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"># curl http://pod1.lzu.edu.cn</span><br><span class="line"># kubectl create ingress pod1.lzu.edu.cn --class=nginx --rule=pod1.lzu.edu.cn/*=pod1:80 --dry-run=client -o yaml &gt; pod1.lzu.edu.cn.ymal</span><br><span class="line"># cat pod1.lzu.edu.cn.ymal</span><br><span class="line">apiVersion: networking.k8s.io/v1</span><br><span class="line">kind: Ingress</span><br><span class="line">metadata:</span><br><span class="line">creationTimestamp: null</span><br><span class="line">name: pod1.lzu.edu.cn</span><br><span class="line">spec:</span><br><span class="line">ingressClassName: nginx</span><br><span class="line">rules:</span><br><span class="line">- host: pod1.lzu.edu.cn</span><br><span class="line">http:</span><br><span class="line">paths:</span><br><span class="line">- backend:</span><br><span class="line">service:</span><br><span class="line">name: pod1</span><br><span class="line">port:</span><br><span class="line">number: 80</span><br><span class="line">path: /</span><br><span class="line">pathType: Prefix</span><br><span class="line">status:</span><br><span class="line">loadBalancer: &#123;&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="九-准备nfs-server并安装其他服务"><a class="markdownIt-Anchor" href="#九-准备nfs-server并安装其他服务"></a> 九、准备NFS server并安装其他服务</h2>
+<p>nfs-server configure：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># apt -y install nfs-kernel-server</span><br><span class="line"># mkdir /nfs_data</span><br><span class="line"># vi /etc/exports</span><br><span class="line">/nfs_data 192.168.111.135/24(rw,insecure,no_subtree_check,no_root_squash,crossmnt)</span><br><span class="line"># systemctl restart nfs-server</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-060.png" alt="操作截图 60" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># git clone https://github.com/kubernetes-sigs/nfs-subdir-external-provisioner.git</span><br><span class="line"># cd ~/nfs-subdir-external-provisioner/deploy</span><br><span class="line"># vi deployment.yaml</span><br></pre></td></tr></table></figure>
+<p>增加镜像下载策略和修改NFS_SERVER和NFS_PATH和nfs server path</p>
+<p><img src="/images/posts/kubernetes-lab-notes/image-061.png" alt="操作截图 61" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># kubectl apply -f rbac.yaml</span><br><span class="line"># kubectl apply -f deployment.yaml</span><br><span class="line"># kubectl get deployments.apps</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-062.png" alt="操作截图 62" /></p>
+<p>镜像需要从境外下载，下载镜像导入到各工作节点</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># wget http://bigdata.cg.lzu.edu.cn/kubernetes/nfs-subdir-provisioner-v4.0.2.tar</span><br><span class="line"># docker image load -i nfs-subdir-provisioner-v4.0.2.tar    （所有节点均需导入）</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-063.png" alt="操作截图 63" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># kubectl apply -f class.yaml</span><br><span class="line"># kubectl get sc</span><br><span class="line"># kubectl apply -f test-claim.yaml</span><br><span class="line"># kubectl get pvc</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-064.png" alt="操作截图 64" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"># cat test-claim.yaml</span><br><span class="line">kind: PersistentVolumeClaim</span><br><span class="line">apiVersion: v1</span><br><span class="line">metadata:</span><br><span class="line">name: test-claim</span><br><span class="line">spec:</span><br><span class="line">storageClassName: nfs-client</span><br><span class="line">accessModes:</span><br><span class="line">- ReadWriteMany</span><br><span class="line">resources:</span><br><span class="line">requests:</span><br><span class="line">storage: 1Mi</span><br><span class="line"># cat test-pod.yaml</span><br><span class="line">kind: Pod</span><br><span class="line">apiVersion: v1</span><br><span class="line">metadata:</span><br><span class="line">name: test-pod</span><br><span class="line">spec:</span><br><span class="line">containers:</span><br><span class="line">- name: test-pod</span><br><span class="line">image: busybox:stable</span><br><span class="line">command:</span><br><span class="line">- &quot;/bin/sh&quot;</span><br><span class="line">args:</span><br><span class="line">- &quot;-c&quot;</span><br><span class="line">- &quot;touch /mnt/SUCCESS &amp;&amp; exit 0 || exit 1&quot;</span><br><span class="line">volumeMounts:</span><br><span class="line">- name: nfs-pvc</span><br><span class="line">mountPath: &quot;/mnt&quot;</span><br><span class="line">restartPolicy: &quot;Never&quot;</span><br><span class="line">volumes:</span><br><span class="line">- name: nfs-pvc</span><br><span class="line">persistentVolumeClaim:</span><br><span class="line">claimName: test-claim</span><br></pre></td></tr></table></figure>
+<h2 id="十-安装heml-tool-rancher-danshbord-wordpress"><a class="markdownIt-Anchor" href="#十-安装heml-tool-rancher-danshbord-wordpress"></a> 十、安装heml tool、rancher danshbord、wordpress</h2>
+<p>下载helm：<a target="_blank" rel="noopener" href="https://github.com/helm/helm/releases">https://github.com/helm/helm/releases</a></p>
+<h3 id="1-下载-需要的版本"><a class="markdownIt-Anchor" href="#1-下载-需要的版本"></a> 1、下载 需要的版本</h3>
+<h3 id="2-解压"><a class="markdownIt-Anchor" href="#2-解压"></a> 2、解压</h3>
+<h3 id="3-在解压目中找到helm程序移动到需要的目录中mv-~linux-amd64helm-usrlocalbinhelm"><a class="markdownIt-Anchor" href="#3-在解压目中找到helm程序移动到需要的目录中mv-~linux-amd64helm-usrlocalbinhelm"></a> 3、在解压目中找到helm程序，移动到需要的目录中(mv ~/linux-amd64/helm /usr/local/bin/helm)</h3>
+<p>然后就可以执行客户端程序并 添加稳定仓库: helm help.</p>
+<p>helm仓库语法帮助</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># helm repo -h</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-065.png" alt="操作截图 65" /></p>
+<p>添加仓库语法：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">helm repo add 名字  地址</span><br></pre></td></tr></table></figure>
+<p>添加仓库</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># helm repo add github https://burdenbear.github.io/kube-charts-mirror/</span><br></pre></td></tr></table></figure>
+<p>查看当前的仓库</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># helm repo list</span><br></pre></td></tr></table></figure>
+<p>仓库更新</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># helm repo update</span><br></pre></td></tr></table></figure>
+<p>删除仓库</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># helm repo remove github</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-066.png" alt="操作截图 66" /></p>
+<p><img src="/images/posts/kubernetes-lab-notes/image-067.png" alt="操作截图 67" /></p>
+<p>通过helm安装cert-manager</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># helm repo add jetstack https://charts.jetstack.io</span><br><span class="line"># kubectl create namespace cert-manager</span><br><span class="line"># kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.7.1/cert-manager.crds.yaml</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-068.png" alt="操作截图 68" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># proxy_host=username:password@proxyserver:port</span><br><span class="line"># helm upgrade --install cert-manager jetstack/cert-manager --namespace cert-manager --version v1.7.1</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-069.png" alt="操作截图 69" /></p>
+<p>查看</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># kubectl rollout status deployment -n cert-manager cert-manager</span><br><span class="line"># kubectl get deployments.apps -n cert-manager</span><br><span class="line"># kubectl get pods -n cert-manager</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-070.png" alt="操作截图 70" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># helm repo add rancher-stable https://releases.rancher.com/server-charts/stable</span><br><span class="line"># kubectl create namespace cattle-system</span><br></pre></td></tr></table></figure>
+<p>通过文件创建secret</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># vi mypasswd</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-071.png" alt="操作截图 71" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl create secret generic mysecret2 --from-file=mypasswd</span><br></pre></td></tr></table></figure>
+<p>查看</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># kubectl get secrets</span><br><span class="line"># kubectl get secrets mysecret2</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-072.png" alt="操作截图 72" /></p>
+<p>看到其类型为Opaque，即使用base64编码格式的secret</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl get secrets mysecret2 -o yaml</span><br></pre></td></tr></table></figure>
+<p>看到只有一个data，名为mypasswd，内容被base64编码过了</p>
+<p>查看</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># kubectl get secrets mysecret2 -o jsonpath=&#x27;&#123;.data.mypasswd&#125; &#x27;</span><br><span class="line"># kubectl get secrets mysecret2 -o jsonpath=&#x27;&#123;.data.mypasswd&#125;&#x27; | base64 -d</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-073.png" alt="操作截图 73" /></p>
+<p><img src="/images/posts/kubernetes-lab-notes/image-074.png" alt="操作截图 74" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># kubectl apply -f pod1_secret.yaml</span><br><span class="line"># kubectl get pod</span><br><span class="line"># kubectl exec pod1 -- ls /root/mypasswd</span><br><span class="line"># kubectl exec pod1 -- cat /root/mypasswd/mypasswd</span><br></pre></td></tr></table></figure>
+<p>通过helm安装cert-manager</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"># helm repo add jetstack https://charts.jetstack.io</span><br><span class="line"># kubectl create namespace cert-manager</span><br><span class="line"># kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.7.1/cert-manager.crds.yaml</span><br><span class="line"># proxy_host=username:password@proxyserver:port</span><br><span class="line"># helm upgrade --install cert-manager jetstack/cert-manager \</span><br><span class="line">--namespace cert-manager --version v1.7.1 \</span><br><span class="line">--set http_proxy=http://$&#123;proxy_host&#125; \</span><br><span class="line">--set https_proxy=http://$&#123;proxy_host&#125; \</span><br><span class="line">--set no_proxy=127.0.0.0/8\\,10.0.0.0/8\\,cattle-system.svc\\,172.16.0.0/12\\,192.168.0.0/16\\,.svc\\,.cluster.local</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-075.png" alt="操作截图 75" /></p>
+<p>查看</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># kubectl rollout status deployment -n cert-manager cert-manager</span><br><span class="line"># kubectl get deployments.apps -n cert-manager</span><br><span class="line"># kubectl get pods -n cert-manager</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-076.png" alt="操作截图 76" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"># helm repo add rancher-stable https://releases.rancher.com/server-charts/stable</span><br><span class="line"># kubectl create namespace cattle-system</span><br><span class="line"># kubectl create secret tls lzu-key --cert=lzu2023.crt --key=lzu2023.key -n cattle-system</span><br><span class="line"># helm upgrade -install rancher rancher-stable/rancher \</span><br><span class="line">--namespace cattle-system \</span><br><span class="line">--set hostname=student0.lzu.edu.cn \</span><br><span class="line">--set ingress.tls.source=lzu-key  \</span><br><span class="line">--set https_proxy=http://$&#123;proxy_host&#125; \</span><br><span class="line">--set no_proxy=127.0.0.0/8\\,10.0.0.0/8\\,cattle-system.svc\\,172.16.0.0/12\\,192.168.0.0/16\\,.svc\\,.cluster.local</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-077.png" alt="操作截图 77" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># helm upgrade --install rancher rancher-stable/rancher --namespace cattle-system</span><br></pre></td></tr></table></figure>
+<p>查看</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># kubectl rollout status deployment -n cattle-system rancher</span><br><span class="line"># kubectl get deployments.apps -n cattle-system</span><br><span class="line"># kubectl get service -n cattle-system</span><br><span class="line"># kubectl get ingress -n cattle-system</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-078.png" alt="操作截图 78" /></p>
+<p>默认创建的ingress类型不是nginx，没有注册到ingress-nginx-controller，删除重建(rke创建的kubernetes无需此步骤)</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># kubectl delete ingress rancher -n cattle-system</span><br><span class="line"># kubectl create ingress rancher --class=nginx --rule=student0.lzu.edu.cn/*=rancher:80,tsl=lzu-key   -n cattle-system</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/kubernetes-lab-notes/image-079.png" alt="操作截图 79" /></p>
+<p>rancher使用</p>
+<p>客户端自行添加域名解析</p>
+<p>访问<a target="_blank" rel="noopener" href="https://student0.lzu.edu.cn">https://student0.lzu.edu.cn</a></p>
+<p>修改设置管理员密码时需满足复杂度要求，默认最小12位。</p>
+<p>自建kubernetes在rancher创建ingress默认class不是nginx，需手工创建。</p>
+<p>(ingress-nginx-controller使用了LoadBalancer分配的外部地址。)</p>
+<p>rke创建的kubernetes在集群前端添加负载均衡即可。负载均衡将80/443负载到kubernetes集群所有worker节点，DNS将域名解析到负载均衡对外端口。</p>
+<p>(rancher将nginx-ingress-controller采用了daemonset部署，直接使用了worker节点80/443端口）</p>
+<p><img src="/images/posts/kubernetes-lab-notes/image-080.png" alt="操作截图 80" /></p>
+<p><img src="/images/posts/kubernetes-lab-notes/image-081.png" alt="操作截图 81" /></p>
+<p><img src="/images/posts/kubernetes-lab-notes/image-082.png" alt="操作截图 82" /></p>
+<p>Rancher 还可以通过 RKE 方式自动搭建 Kubernetes 集群：</p>
+<p><img src="/images/posts/kubernetes-lab-notes/image-083.png" alt="操作截图 83" /></p>
+<p>此外，还可以在 K8S 上搭建 WordPress，流程和之前单独部署 WordPress 基本一致：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># cd /var/www/html/</span><br><span class="line"># wget https://cn.wordpress.org/latest-zh_CN.zip</span><br><span class="line"># dnf install -y unzip</span><br><span class="line"># unzip latest-zh_CN.zip</span><br></pre></td></tr></table></figure>
+<p>修改权限</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># chown -R apache. wordpress/</span><br></pre></td></tr></table></figure>
+<p>删除下载文件</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># rm latest-zh_CN.zip</span><br></pre></td></tr></table></figure>
+<p>将wordpress文件放置到apache根目录</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># mv /var/www/html/wordpress/* /var/www/html/</span><br><span class="line"># rmdir /var/www/html/wordpress/</span><br></pre></td></tr></table></figure>
+<p>修改wordpress配置文件，配置数据库信息</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># cp /var/www/html/wp-config-sample.php /var/www/html/wp-config.php</span><br><span class="line"># vi /var/www/html/wp-config.php</span><br></pre></td></tr></table></figure>
+<p>/** WordPress 数据库名称 */</p>
+<p>define( ‘DB_NAME’, ‘wordpress’ );</p>
+<p>/** 数据库用户名 */</p>
+<p>define( ‘DB_USER’, ‘wordpress’ );</p>
+<p>/** 数据库密码 */</p>
+<p>define( ‘DB_PASSWORD’, ‘Wordpress!2024’ );</p>
+<p>/** 数据库主机 */</p>
+<p>define( ‘DB_HOST’, ‘172.16.249.229:33061’ );</p>
+<p>数据库信息配置正确就可以进行初始化了。</p>
+<p>日志文件目录/var/log/httpd/</p>
+<p>php配置文件/etc/httpd/conf.d/php.conf</p>
+<p>php-fpm配置文件/etc/php-fpm.d/www.conf</p>
+<p>apache配置文件/etc/httpd/conf/httpd.conf</p>
+<p>apache的php配置文件 /etc/httpd/conf.d/php.conf</p>
+<p>supervisor配置文件/etc/supervisord.conf</p>
+<p>supervisor增加的启动服务配置文件/etc/supervisord.d/startup.ini</p>
+<p>下面访问虚拟机ip地址：<a target="_blank" rel="noopener" href="http://192.168.111.135">http://192.168.111.135</a></p>
+<p><img src="/images/posts/kubernetes-lab-notes/image-084.png" alt="操作截图 84" /></p>
+<p>至此，K8S 集群安装、基础对象操作、服务暴露、Ingress、NFS、Rancher 和 WordPress 部署都已经完成。</p>
+<h2 id="十一-一些记录"><a class="markdownIt-Anchor" href="#十一-一些记录"></a> 十一、一些记录</h2>
+<p>这次搭建覆盖了 Kubernetes 的几个核心操作面：</p>
+<p>基本kubectl命令：我练习了使用基本的kubectl命令来与Kubernetes集群进行交互。</p>
+<p>Pod操作：我学习了如何对Pod执行基本操作，包括创建、扩展和删除。</p>
+<p>Deployment和Service创建：我使用YAML文件创建了 Deployment和Service，展示了我对Kubernetes声明性配置方法的理解。</p>
+<p>负载均衡器和 ingress 控制器：我安装并配置了负载均衡器和ingress控制器，启用了对Kubernetes应用程序的外部访问。</p>
+<p>NFS服务器和其他服务：我设置了NFS服务器并安装了其他服务，扩展了Kubernetes集群的功能。</p>
+<p>工具和Dashboard：我安装并探索了工具，例如Helm、Rancher Dashboard和WordPress，扩展了我的Kubernetes技能。</p>
+
+      
+    </div>
+    <div class="article-footer">
+      
+<blockquote class="mt-2x">
+  <ul class="post-copyright list-unstyled">
+    
+    <li class="post-copyright-link hidden-xs">
+      <strong>本文链接：</strong>
+      <a href="https://zhouzhq2021.github.io/2026/06/08/kubernetes-lab-notes/" title="Kubernetes 实践：集群安装与应用部署" target="_blank" rel="external">https://zhouzhq2021.github.io/2026/06/08/kubernetes-lab-notes/</a>
+    </li>
+    
+    <li class="post-copyright-license">
+      <strong>版权声明： </strong> 本博客所有文章除特别声明外，均采用 <a href="http://creativecommons.org/licenses/by/4.0/deed.zh" target="_blank" rel="external">CC BY 4.0 CN协议</a> 许可协议。转载请注明出处！
+    </li>
+  </ul>
+</blockquote>
+
+
+    </div>
+  </article>
+  
+    
+  <section id="comments">
+  	
+           
+    
+  </section>
+
+
+  
+</div>
+
+  <nav class="bar bar-footer clearfix" data-stick-bottom>
+  <div class="bar-inner">
+  
+  <ul class="pager pull-left">
+    
+    
+    <li class="next">
+      <a href="/2026/06/08/hadoop-spark-environment-lab-notes/" title="Hadoop 与 Spark 单节点大数据环境搭建"><span>Older&nbsp;&nbsp;</span><i class="icon icon-angle-right" aria-hidden="true"></i></a>
+    </li>
+    
+    
+  </ul>
+  
+  
+  
+  <div class="bar-right">
+    
+  </div>
+  </div>
+</nav>
+  
+
+
+
+</main>
+
+  <footer class="footer" itemscope itemtype="http://schema.org/WPFooter">
+	
+	
+    <ul class="social-links">
+    	
+        <li><a href="https://github.com/zhouzhq2021" target="_blank" title="Github" data-toggle=tooltip data-placement=top><i class="icon icon-github"></i></a></li>
+        
+        <li><a href="mailto:zhouzhq2021@sjtu.edu.cn" target="_blank" title="Email" data-toggle=tooltip data-placement=top><i class="icon icon-email"></i></a></li>
+        
+        <li><a href="/atom.xml" target="_blank" title="Rss" data-toggle=tooltip data-placement=top><i class="icon icon-rss"></i></a></li>
+        
+    </ul>
+
+    <div class="copyright">
+    	
+        &copy; 2026 Zhongquan Zhou
+        
+        <div class="publishby">
+        	Theme by <a href="https://github.com/cofess" target="_blank"> cofess </a>base on <a href="https://github.com/cofess/hexo-theme-pure" target="_blank">pure</a>.
+        </div>
+    </div>
+</footer>
+  <script src="//cdn.jsdelivr.net/npm/jquery@1.12.4/dist/jquery.min.js"></script>
+<script>
+window.jQuery || document.write('<script src="js/jquery.min.js"><\/script>')
+</script>
+
+<script src="/js/plugin.min.js"></script>
+
+
+<script src="/js/application.js"></script>
+
+
+    <script>
+(function (window) {
+    var INSIGHT_CONFIG = {
+        TRANSLATION: {
+            POSTS: 'Posts',
+            PAGES: 'Pages',
+            CATEGORIES: 'Categories',
+            TAGS: 'Tags',
+            UNTITLED: '(Untitled)',
+        },
+        ROOT_URL: '/',
+        CONTENT_URL: '/content.json',
+    };
+    window.INSIGHT_CONFIG = INSIGHT_CONFIG;
+})(window);
+</script>
+
+<script src="/js/insight.js"></script>
+
+
+
+
+
+
+   
+<script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+   
+    
+  <!-- <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css"> -->
+  <script src="//cdn.jsdelivr.net/npm/gitalk@1.6.2/dist/gitalk.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/blueimp-md5@2.10.0/js/md5.min.js"></script>
+  <script type="text/javascript">
+  var gitalk = new Gitalk({
+    clientID: 'Ov23ligxx5efd5yRAiAq',
+    clientSecret: '3114825a44fe2c1af88fabb6c926e5a3e0256f27',
+    repo: 'zhouzhq2021.github.io',
+    owner: 'zhouzhq2021',
+    admin: ['zhouzhq2021'],
+    id: md5(location.pathname),
+    distractionFreeMode: true,
+    language: 'en',
+    enableHotKey: 'true'
+  })
+  gitalk.render('comments')
+  </script>
+      
+
+
+
+  <script src="//cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.3.5/dist/jquery.fancybox.min.js"></script>
+  <script>
+  //利用 FancyBox 实现点击图片放大
+  $(document).ready(function() {
+    $('article img').not('[hidden]').not('.panel-body img').each(function() {
+      var $image = $(this);
+      var imageCaption = $image.attr('alt');
+      var $imageWrapLink = $image.parent('a');
+      if ($imageWrapLink.length < 1) {
+        var src = this.getAttribute('src');
+        var idx = src.lastIndexOf('?');
+        if (idx != -1) {
+          src = src.substring(0, idx);
+        }
+        $imageWrapLink = $image.wrap('<a href="' + src + '"></a>').parent('a');
+      }
+      $imageWrapLink.attr('data-fancybox', 'images');
+      if (imageCaption) {
+        $imageWrapLink.attr('data-caption', imageCaption);
+      }
+    });
+    $().fancybox({
+      selector: '[data-fancybox="images"]',
+      hash: false,
+      loop: false,
+    });
+  });
+  </script>
+
+
+
+
+
+</body>
+</html>

@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang=en>
+<head>
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, minimal-ui">
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="Cache-Control" content="no-transform" />
+  <meta http-equiv="Cache-Control" content="no-siteapp" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="format-detection" content="telephone=no,email=no,adress=no">
+  <!-- Color theme for statusbar -->
+  <meta name="theme-color" content="#000000" />
+  <!-- 强制页面在当前窗口以独立页面显示,防止别人在框架里调用页面 -->
+  <meta http-equiv="window-target" content="_top" />
+  
+  
+  <title>OpenStack 实践：完整环境搭建与服务验证 | Zhongquan Zhou&#39;s Blog</title>
+  <meta name="description" content="OpenStack 的部署链路比较长，组件之间的依赖也多。这篇记录按实际搭建顺序展开，从虚拟机环境准备开始，依次配置基础服务、Keystone、Glance、Placement、Nova、Neutron、Dashboard、Cinder，并完成实例创建和冷迁移验证。  一、环境准备 使用 VirtualBox 创建一个 Ubuntu 22.04 虚拟机，OpenStack 的所有组件都部署在这台虚">
+<meta property="og:type" content="article">
+<meta property="og:title" content="OpenStack 实践：完整环境搭建与服务验证">
+<meta property="og:url" content="https://zhouzhq2021.github.io/2026/06/08/openstack-lab-notes/index.html">
+<meta property="og:site_name" content="Zhongquan Zhou&#39;s Blog">
+<meta property="og:description" content="OpenStack 的部署链路比较长，组件之间的依赖也多。这篇记录按实际搭建顺序展开，从虚拟机环境准备开始，依次配置基础服务、Keystone、Glance、Placement、Nova、Neutron、Dashboard、Cinder，并完成实例创建和冷迁移验证。  一、环境准备 使用 VirtualBox 创建一个 Ubuntu 22.04 虚拟机，OpenStack 的所有组件都部署在这台虚">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-003.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-004.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-005.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-006.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-007.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-008.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-009.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-010.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-011.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-012.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-013.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-014.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-015.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-016.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-017.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-018.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-019.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-020.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-021.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-022.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-023.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-024.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-025.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-026.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-027.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-028.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-029.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-030.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-031.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-032.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-033.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-034.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-035.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-036.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-037.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-038.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-039.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-040.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-041.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-042.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-043.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-044.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-045.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-046.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-047.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-048.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-049.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-050.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-051.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-052.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-053.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-054.png">
+<meta property="article:published_time" content="2026-06-08T03:10:00.000Z">
+<meta property="article:modified_time" content="2026-06-08T04:41:53.514Z">
+<meta property="article:author" content="Zhongquan Zhou">
+<meta property="article:tag" content="OpenStack">
+<meta property="article:tag" content="Cloud Computing">
+<meta property="article:tag" content="Virtualization">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://zhouzhq2021.github.io/images/posts/openstack-lab-notes/image-003.png">
+  <!-- Canonical links -->
+  <link rel="canonical" href="https://zhouzhq2021.github.io/2026/06/08/openstack-lab-notes/index.html">
+  
+    <link rel="alternate" href="/atom.xml" title="Zhongquan Zhou&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+  
+  
+    <link href="//cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.3.5/dist/jquery.fancybox.min.css" rel="stylesheet">
+  
+  
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1.4.0/dist/gitalk.min.css">
+  
+  <link rel="stylesheet" type="text/css" href="/css/custom.css">
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body class="main-center" itemscope itemtype="http://schema.org/WebPage">
+  <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+  <div class="slimContent">
+    <div class="navbar-header">
+      
+      
+      <div class="profile-block text-center">
+        <a id="avatar" href="https://github.com/zhouzhq2021" target="_blank">
+          <img class="img-circle img-rotate" src="/images/avatar-20260605.jpg" width="200" height="200">
+        </a>
+        <h2 id="name" class="hidden-xs hidden-sm">Zhongquan Zhou</h2>
+        <h3 id="title" class="hidden-xs hidden-sm hidden-md">Computer Science Graduate Student @ Shanghai Jiao Tong University</h3>
+        <small id="location" class="text-muted hidden-xs hidden-sm"><i class="icon icon-map-marker"></i> Shanghai, China</small>
+      </div>
+      
+      <div class="search" id="search-form-wrap">
+
+    <form class="search-form sidebar-form">
+        <div class="input-group">
+            <input type="text" class="search-form-input form-control" placeholder="Search" />
+            <span class="input-group-btn">
+                <button type="submit" class="search-form-submit btn btn-flat" onclick="return false;"><i class="icon icon-search"></i></button>
+            </span>
+        </div>
+    </form>
+    <div class="ins-search">
+  <div class="ins-search-mask"></div>
+  <div class="ins-search-container">
+    <div class="ins-input-wrapper">
+      <input type="text" class="ins-search-input" placeholder="Type something..." x-webkit-speech />
+      <button type="button" class="close ins-close ins-selectable" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">×</span></button>
+    </div>
+    <div class="ins-section-wrapper">
+      <div class="ins-section-container"></div>
+    </div>
+  </div>
+</div>
+
+
+</div>
+      <button class="navbar-toggle collapsed" type="button" data-toggle="collapse" data-target="#main-navbar" aria-controls="main-navbar" aria-expanded="false">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+    </div>
+    <nav id="main-navbar" class="collapse navbar-collapse" itemscope itemtype="http://schema.org/SiteNavigationElement" role="navigation">
+      <ul class="nav navbar-nav main-nav menu-highlight">
+        
+        
+        <li class="menu-item menu-item-home">
+          <a href="/.">
+            
+            <i class="icon icon-home-fill"></i>
+            
+            <span class="menu-title">Home</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories">
+            
+            <i class="icon icon-folder"></i>
+            
+            <span class="menu-title">Categories</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags">
+            
+            <i class="icon icon-tags"></i>
+            
+            <span class="menu-title">Tags</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-repository">
+          <a href="/repository">
+            
+            <i class="icon icon-project"></i>
+            
+            <span class="menu-title">Repository</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-books">
+          <a href="/books">
+            
+            <i class="icon icon-book-fill"></i>
+            
+            <span class="menu-title">Books</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-links">
+          <a href="/links">
+            
+            <i class="icon icon-friendship"></i>
+            
+            <span class="menu-title">Links</span>
+          </a>
+        </li>
+        
+      </ul>
+      
+	
+    <ul class="social-links">
+    	
+        <li><a href="https://github.com/zhouzhq2021" target="_blank" title="Github" data-toggle=tooltip data-placement=top><i class="icon icon-github"></i></a></li>
+        
+        <li><a href="mailto:zhouzhq2021@sjtu.edu.cn" target="_blank" title="Email" data-toggle=tooltip data-placement=top><i class="icon icon-email"></i></a></li>
+        
+        <li><a href="/atom.xml" target="_blank" title="Rss" data-toggle=tooltip data-placement=top><i class="icon icon-rss"></i></a></li>
+        
+    </ul>
+
+    </nav>
+  </div>
+</header>
+
+  
+    <aside class="sidebar" itemscope itemtype="http://schema.org/WPSideBar">
+  <div class="slimContent">
+    
+      <div class="widget">
+    <h3 class="widget-title">Board</h3>
+    <div class="widget-body">
+        <div id="board">
+            <div class="content">
+                <p>Welcome to my personal blog! Feel free to explore and share your thoughts!</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Contact</h3>
+    <div class="widget-body">
+      <ul class="sidebar-simple-list">
+        
+          
+          <li>
+            <span class="sidebar-contact-label">Email</span>
+            
+              <a href="mailto:zhouzhq2021@sjtu.edu.cn">zhouzhq2021@sjtu.edu.cn</a>
+            
+          </li>
+        
+          
+          <li>
+            <span class="sidebar-contact-label">GitHub</span>
+            
+              <a href="https://github.com/zhouzhq2021" target="_blank">github.com/zhouzhq2021</a>
+            
+          </li>
+        
+          
+          <li>
+            <span class="sidebar-contact-label">Location</span>
+            
+              <span>Shanghai, China</span>
+            
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Categories</h3>
+    <div class="widget-body">
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/Cloud-Computing-and-Big-Data/">Cloud Computing and Big Data</a><span class="category-list-count">4</span></li></ul>
+    </div>
+  </div>
+
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Tags</h3>
+    <div class="widget-body">
+      <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/Ceph/" rel="tag">Ceph</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Cloud-Computing/" rel="tag">Cloud Computing</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Distributed-Storage/" rel="tag">Distributed Storage</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Docker/" rel="tag">Docker</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/HDFS/" rel="tag">HDFS</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Hadoop/" rel="tag">Hadoop</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Helm/" rel="tag">Helm</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Kubernetes/" rel="tag">Kubernetes</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/NFS/" rel="tag">NFS</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/OpenStack/" rel="tag">OpenStack</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/RBD/" rel="tag">RBD</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Rancher/" rel="tag">Rancher</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/S3/" rel="tag">S3</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Spark/" rel="tag">Spark</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Virtualization/" rel="tag">Virtualization</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/YARN/" rel="tag">YARN</a><span class="tag-list-count">1</span></li></ul>
+    </div>
+  </div>
+
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Tag Cloud</h3>
+    <div class="widget-body tagcloud">
+      <a href="/tags/Ceph/" style="font-size: 13px;">Ceph</a> <a href="/tags/Cloud-Computing/" style="font-size: 13px;">Cloud Computing</a> <a href="/tags/Distributed-Storage/" style="font-size: 13px;">Distributed Storage</a> <a href="/tags/Docker/" style="font-size: 13px;">Docker</a> <a href="/tags/HDFS/" style="font-size: 13px;">HDFS</a> <a href="/tags/Hadoop/" style="font-size: 13px;">Hadoop</a> <a href="/tags/Helm/" style="font-size: 13px;">Helm</a> <a href="/tags/Kubernetes/" style="font-size: 13px;">Kubernetes</a> <a href="/tags/NFS/" style="font-size: 13px;">NFS</a> <a href="/tags/OpenStack/" style="font-size: 13px;">OpenStack</a> <a href="/tags/RBD/" style="font-size: 13px;">RBD</a> <a href="/tags/Rancher/" style="font-size: 13px;">Rancher</a> <a href="/tags/S3/" style="font-size: 13px;">S3</a> <a href="/tags/Spark/" style="font-size: 13px;">Spark</a> <a href="/tags/Virtualization/" style="font-size: 13px;">Virtualization</a> <a href="/tags/YARN/" style="font-size: 13px;">YARN</a>
+    </div>
+  </div>
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Archive</h3>
+    <div class="widget-body">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2026/06/">June 2026</a><span class="archive-list-count">4</span></li></ul>
+    </div>
+  </div>
+
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget-body">
+      <ul class="recent-post-list list-unstyled ">
+        
+          <li>
+            
+            <div class="item-thumb">
+              <a href="/2026/06/08/kubernetes-lab-notes/" class="thumb">
+    
+    
+        <span class="thumb-image thumb-none"></span>
+    
+</a>
+
+            </div>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/Cloud-Computing-and-Big-Data/">Cloud Computing and Big Data</a>
+              </p>
+              <p class="item-title">
+                <a href="/2026/06/08/kubernetes-lab-notes/" class="title">Kubernetes 实践：集群安装与应用部署</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2026-06-08T03:40:00.000Z" itemprop="datePublished">2026-06-08</time>
+              </p>
+            </div>
+          </li>
+          
+          <li>
+            
+            <div class="item-thumb">
+              <a href="/2026/06/08/hadoop-spark-environment-lab-notes/" class="thumb">
+    
+    
+        <span class="thumb-image thumb-none"></span>
+    
+</a>
+
+            </div>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/Cloud-Computing-and-Big-Data/">Cloud Computing and Big Data</a>
+              </p>
+              <p class="item-title">
+                <a href="/2026/06/08/hadoop-spark-environment-lab-notes/" class="title">Hadoop 与 Spark 单节点大数据环境搭建</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2026-06-08T03:30:00.000Z" itemprop="datePublished">2026-06-08</time>
+              </p>
+            </div>
+          </li>
+          
+          <li>
+            
+            <div class="item-thumb">
+              <a href="/2026/06/08/ceph-cluster-lab-notes/" class="thumb">
+    
+    
+        <span class="thumb-image thumb-none"></span>
+    
+</a>
+
+            </div>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/Cloud-Computing-and-Big-Data/">Cloud Computing and Big Data</a>
+              </p>
+              <p class="item-title">
+                <a href="/2026/06/08/ceph-cluster-lab-notes/" class="title">Ceph Cluster Installation：分布式存储集群搭建与使用</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2026-06-08T03:20:00.000Z" itemprop="datePublished">2026-06-08</time>
+              </p>
+            </div>
+          </li>
+          
+          <li>
+            
+            <div class="item-thumb">
+              <a href="/2026/06/08/openstack-lab-notes/" class="thumb">
+    
+    
+        <span class="thumb-image thumb-none"></span>
+    
+</a>
+
+            </div>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/Cloud-Computing-and-Big-Data/">Cloud Computing and Big Data</a>
+              </p>
+              <p class="item-title">
+                <a href="/2026/06/08/openstack-lab-notes/" class="title">OpenStack 实践：完整环境搭建与服务验证</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2026-06-08T03:10:00.000Z" itemprop="datePublished">2026-06-08</time>
+              </p>
+            </div>
+          </li>
+          
+      </ul>
+    </div>
+  </div>
+  
+
+    
+  </div>
+</aside>
+
+  
+  
+<main class="main" role="main">
+  <div class="content">
+  <article id="post-openstack-lab-notes" class="article article-type-post" itemscope itemtype="http://schema.org/BlogPosting">
+    
+    <div class="article-header">
+      
+        
+  
+    <h1 class="article-title" itemprop="name">
+      OpenStack 实践：完整环境搭建与服务验证
+    </h1>
+  
+
+      
+      <div class="article-meta">
+        <span class="article-date">
+    <i class="icon icon-calendar-check"></i>
+	<a href="/2026/06/08/openstack-lab-notes/" class="article-date">
+	  <time datetime="2026-06-08T03:10:00.000Z" itemprop="datePublished">2026-06-08</time>
+	</a>
+</span>
+        
+  <span class="article-category">
+    <i class="icon icon-folder"></i>
+    <a class="article-category-link" href="/categories/Cloud-Computing-and-Big-Data/">Cloud Computing and Big Data</a>
+  </span>
+
+        
+  <span class="article-tag">
+    <i class="icon icon-tags"></i>
+	<a class="article-tag-link-link" href="/tags/Cloud-Computing/" rel="tag">Cloud Computing</a>, <a class="article-tag-link-link" href="/tags/OpenStack/" rel="tag">OpenStack</a>, <a class="article-tag-link-link" href="/tags/Virtualization/" rel="tag">Virtualization</a>
+  </span>
+
+
+        
+	<span class="article-read hidden-xs">
+	    <i class="icon icon-eye-fill" aria-hidden="true"></i>
+	    <span id="busuanzi_container_page_pv">
+			<span id="busuanzi_value_page_pv">0</span>
+		</span>
+	</span>
+
+
+        
+        <span class="post-comment"><i class="icon icon-comment"></i> <a href="/2026/06/08/openstack-lab-notes/#comments" class="article-comment-link">Comments</a></span>
+        
+        
+	
+		<span class="post-wordcount hidden-xs" itemprop="wordCount">Word Count: 4.2k(words)</span>
+	
+	
+		<span class="post-readcount hidden-xs" itemprop="timeRequired">Read Count: 23(minutes)</span>
+	
+
+      </div>
+    </div>
+    <div class="article-entry marked-body" itemprop="articleBody">
+      
+        <p>OpenStack 的部署链路比较长，组件之间的依赖也多。这篇记录按实际搭建顺序展开，从虚拟机环境准备开始，依次配置基础服务、Keystone、Glance、Placement、Nova、Neutron、Dashboard、Cinder，并完成实例创建和冷迁移验证。</p>
+<h2 id="一-环境准备"><a class="markdownIt-Anchor" href="#一-环境准备"></a> 一、环境准备</h2>
+<p>使用 VirtualBox 创建一个 Ubuntu 22.04 虚拟机，OpenStack 的所有组件都部署在这台虚拟机中，详细规格如下：</p>
+<p><img src="/images/posts/openstack-lab-notes/image-003.png" alt="操作截图 3" /></p>
+<p>一个NAT网卡，两个host-only网卡，地址为：192.168.56.103以及192.168.212.4。内存分配8G,8个处理器。其他保持默认。</p>
+<h2 id="二-基础配置"><a class="markdownIt-Anchor" href="#二-基础配置"></a> 二、基础配置</h2>
+<p>基础配置沿用之前整理过的一套 Linux 初始化流程，这里只保留和后续 OpenStack 部署相关的关键操作。</p>
+<h3 id="21-网络配置"><a class="markdownIt-Anchor" href="#21-网络配置"></a> 2.1 网络配置</h3>
+<h3 id="22-主机名配置"><a class="markdownIt-Anchor" href="#22-主机名配置"></a> 2.2 主机名配置</h3>
+<p>配置主机名方便后续的环境配置</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">vim /etc/hosts</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-004.png" alt="操作截图 4" /></p>
+<p><img src="/images/posts/openstack-lab-notes/image-005.png" alt="操作截图 5" /></p>
+<h3 id="23-配置时区"><a class="markdownIt-Anchor" href="#23-配置时区"></a> 2.3 配置时区</h3>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># timedatectl set-timezone Asia/Shanghai</span><br><span class="line"># apt-get install ntp</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-006.png" alt="操作截图 6" /></p>
+<p><img src="/images/posts/openstack-lab-notes/image-007.png" alt="操作截图 7" /></p>
+<h3 id="24-ssh配置"><a class="markdownIt-Anchor" href="#24-ssh配置"></a> 2.4 SSH配置</h3>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># ssh-keygen -t rsa -P &#x27;&#x27; -f ~/.ssh/id_rsa</span><br><span class="line"># cat ~/.ssh/id_rsa.pub &gt;&gt; ~/.ssh/authorized_keys</span><br><span class="line"># chmod 0600 ~/.ssh/authorized_keys</span><br><span class="line"># vim /etc/ssh/sshd_config</span><br></pre></td></tr></table></figure>
+<p>配置完毕后可以正常SSH登陆虚拟机</p>
+<p><img src="/images/posts/openstack-lab-notes/image-008.png" alt="操作截图 8" /></p>
+<h3 id="25-常规优化"><a class="markdownIt-Anchor" href="#25-常规优化"></a> 2.5 常规优化</h3>
+<p>更新系统</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">apt update &amp;&amp; apt upgrade -y</span><br></pre></td></tr></table></figure>
+<p>优化file-max nropen和ulimit</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># vi /etc/security/limits.conf</span><br><span class="line"># vi /etc/sysctl.conf</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-009.png" alt="操作截图 9" /></p>
+<h2 id="三-openstack-依赖服务配置"><a class="markdownIt-Anchor" href="#三-openstack-依赖服务配置"></a> 三、OpenStack 依赖服务配置</h2>
+<h3 id="31-rabbimq-server"><a class="markdownIt-Anchor" href="#31-rabbimq-server"></a> 3.1 rabbimq-server</h3>
+<p>安装</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"># apt -y install rabbitmq-server</span><br><span class="line"># vi /etc/rabbitmq/rabbitmq-env.conf</span><br><span class="line">NODENAME=rabbit@localhost</span><br><span class="line">NODE_IP_ADDRESS=0.0.0.0</span><br><span class="line">NODE_PORT=5672</span><br><span class="line"># systemctl restart rabbitmq-server</span><br><span class="line"># systemctl enable rabbitmq-server</span><br></pre></td></tr></table></figure>
+<p>添加用户并配置权限</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># rabbitmqctl add_user openstack &#x27;Openstack!2024&#x27;</span><br><span class="line"># rabbitmqctl set_permissions openstack &quot;.*&quot; &quot;.*&quot; &quot;.*&quot;</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-010.png" alt="操作截图 10" /></p>
+<h3 id="32-memcached"><a class="markdownIt-Anchor" href="#32-memcached"></a> 3.2 memcached</h3>
+<p>安装</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># apt -y install memcached python3-memcache</span><br><span class="line"># vi /etc/memcached.conf</span><br><span class="line">-l 0.0.0.0</span><br><span class="line"># systemctl restart memcached</span><br><span class="line"># systemctl enable memcached</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-011.png" alt="操作截图 11" /></p>
+<h3 id="33-mariadb-database"><a class="markdownIt-Anchor" href="#33-mariadb-database"></a> 3.3 mariadb database</h3>
+<p>安装</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"># apt -y install mariadb-server python3-pymysql</span><br><span class="line"># vi /etc/mysql/mariadb.conf.d/50-server.cnf</span><br><span class="line">[mysqld]</span><br><span class="line">bind-address            =  0.0.0.0</span><br><span class="line">default-storage-engine = innodb</span><br><span class="line">max_connections = 4096</span><br><span class="line">innodb_file_per_table = on</span><br><span class="line">collation-server = utf8_general_ci</span><br><span class="line">character-set-server = utf8</span><br><span class="line"># systemctl restart mariadb</span><br><span class="line"># systemctl enable mariadb</span><br><span class="line"># mysql_secure_installation</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-012.png" alt="操作截图 12" /></p>
+<h2 id="四-openstack-核心组件部署"><a class="markdownIt-Anchor" href="#四-openstack-核心组件部署"></a> 四、OpenStack 核心组件部署</h2>
+<h3 id="41-keystone"><a class="markdownIt-Anchor" href="#41-keystone"></a> 4.1 keystone</h3>
+<p>创建keystone database</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"># mysql -u root -p</span><br><span class="line">&gt; create database keystone;</span><br><span class="line">&gt; grant all privileges on keystone.* to keystone@localhost identified by &#x27;Keystone!2024&#x27;;</span><br><span class="line">&gt; grant all privileges on keystone.* to keystone@&#x27;%&#x27; identified by &#x27;Keystone!2024&#x27;;</span><br><span class="line">&gt; flush privileges;</span><br><span class="line">&gt; exit</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-013.png" alt="操作截图 13" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"># apt -y install keystone python3-openstackclient apache2 libapache2-mod-wsgi-py3 python3-oauth2client</span><br><span class="line"># mv /etc/keystone/keystone.conf /etc/keystone/keystone.conf.org</span><br><span class="line"># grep -vE &quot;^$|^#&quot; /etc/keystone/keystone.conf.org</span><br><span class="line">#  vi /etc/keystone/keystone.conf</span><br><span class="line">[DEFAULT]</span><br><span class="line">log_dir = /var/log/keystone</span><br><span class="line">[cache]</span><br><span class="line">memcache_servers = 192.168.56.103:11211</span><br><span class="line">[database]</span><br><span class="line">connection = mysql+pymysql://keystone:Keystone!2024@192.168.56.103/keystone</span><br><span class="line">[token]</span><br><span class="line">provider = fernet</span><br><span class="line"># chmod 640 /etc/keystone/keystone.conf</span><br><span class="line"># chown keystone.keystone /etc/keystone/keystone.conf</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-014.png" alt="操作截图 14" /></p>
+<p>#  su -s /bin/sh -c “keystone-manage db_sync” keystone</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"># keystone-manage fernet_setup --keystone-user keystone --keystone-group keystone</span><br><span class="line"># keystone-manage credential_setup --keystone-user keystone --keystone-group keystone</span><br><span class="line"># controller=192.168.56.103</span><br><span class="line"># keystone-manage bootstrap --bootstrap-password &#x27;Keystone!2024&#x27;  \</span><br><span class="line">--bootstrap-admin-url http://$controller:5000/v3/ \</span><br><span class="line">--bootstrap-internal-url http://$controller:5000/v3/ \</span><br><span class="line">--bootstrap-public-url http://$controller:5000/v3/ \</span><br><span class="line">--bootstrap-region-id RegionOne</span><br><span class="line"># vi /etc/apache2/apache2.conf</span><br><span class="line">ServerName controller</span><br><span class="line"># vi /etc/apache2/conf-enabled/security.conf</span><br><span class="line">ServerTokens  Prod</span><br><span class="line"># systemctl restart apache2</span><br><span class="line"># cat /etc/apache2/sites-enabled/keystone.conf</span><br><span class="line"># netstat -an | grep 5000</span><br><span class="line"># lsof | grep 5000</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-015.png" alt="操作截图 15" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"># vi ~/keystonerc</span><br><span class="line">export OS_PROJECT_DOMAIN_NAME=default</span><br><span class="line">export OS_USER_DOMAIN_NAME=default</span><br><span class="line">export OS_PROJECT_NAME=admin</span><br><span class="line">export OS_USERNAME=admin</span><br><span class="line">export OS_PASSWORD=Keystone!2024</span><br><span class="line">export OS_AUTH_URL=http://192.168.56.103:5000/v3</span><br><span class="line">export OS_IDENTITY_API_VERSION=3</span><br><span class="line">export OS_IMAGE_API_VERSION=2</span><br><span class="line">export PS1=&#x27;\u@\h \W(keystone)\$&#x27;</span><br><span class="line"># chmod 600 ~/keystonerc</span><br><span class="line"># source ~/keystonerc</span><br><span class="line"># echo &quot;source ~/keystonerc &quot; &gt;&gt; ~/.bash_profile</span><br></pre></td></tr></table></figure>
+<p>验证服务</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># openstack endpoint list</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-016.png" alt="操作截图 16" /></p>
+<p>create service project for the openstack</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># openstack project create --domain default --description &quot;Service Project&quot; service</span><br><span class="line"># openstack project list</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-017.png" alt="操作截图 17" /></p>
+<p>验证完毕。</p>
+<h3 id="42-验证glance服务"><a class="markdownIt-Anchor" href="#42-验证glance服务"></a> 4.2 验证glance服务</h3>
+<p>创建glance database</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"># mysql -u root -p</span><br><span class="line">&gt; create database glance;</span><br><span class="line">&gt; grant all privileges on glance.* to glance@localhost identified by &#x27;Glance!2024&#x27;;</span><br><span class="line">&gt; grant all privileges on glance.* to glance@&#x27;%&#x27; identified by &#x27;Glance!2024&#x27;;</span><br><span class="line">&gt; flush privileges;</span><br><span class="line">&gt; exit</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-018.png" alt="操作截图 18" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"># openstack user create --domain default --project service --password &#x27;Glance!2024&#x27; glance</span><br><span class="line"># openstack role add --project service --user glance admin</span><br><span class="line"># openstack service create --name glance --description &quot;OpenStack Image&quot; image</span><br><span class="line"># glance=192.168.56.103</span><br><span class="line"># openstack endpoint create --region RegionOne image public http://$glance:9292</span><br><span class="line"># openstack endpoint create --region RegionOne image internal http://$glance:9292</span><br><span class="line"># openstack endpoint create --region RegionOne image admin http://$glance:9292</span><br><span class="line"># openstack endpoint list</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-019.png" alt="操作截图 19" /></p>
+<p>安装glance</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"># apt install glance -y</span><br><span class="line"># mv /etc/glance/glance-api.conf /etc/glance/glance-api.conf.org</span><br><span class="line"># vi /etc/glance/glance-api.conf</span><br><span class="line">[DEFAULT]</span><br><span class="line">bind_host = 0.0.0.0</span><br><span class="line">show_image_direct_url = True</span><br><span class="line">[database]</span><br><span class="line">connection = mysql+pymysql://glance:Glance!2024@192.168.56.103/glance</span><br><span class="line">[glance_store]</span><br><span class="line">stores = file,http</span><br><span class="line">default_store = file</span><br><span class="line">filesystem_store_datadir = /var/lib/glance/images/</span><br><span class="line">[keystone_authtoken]</span><br><span class="line">www_authenticate_uri = http://192.168.56.103:5000</span><br><span class="line">auth_url = http://192.168.56.103:5000</span><br><span class="line">memcached_servers = 192.168.56.103:11211</span><br><span class="line">auth_type = password</span><br><span class="line">project_domain_name = default</span><br><span class="line">user_domain_name = default</span><br><span class="line">project_name = service</span><br><span class="line">username = glance</span><br><span class="line">password = Glance!2024</span><br><span class="line">[paste_deploy]</span><br><span class="line">flavor = keystone</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-020.png" alt="操作截图 20" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># chmod 640 /etc/glance/glance-api.conf</span><br><span class="line"># chown root:glance /etc/glance/glance-api.conf</span><br></pre></td></tr></table></figure>
+<p>添加数据</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># su -s /bin/sh -c &quot;glance-manage db_sync&quot; glance</span><br><span class="line">Start the service</span><br><span class="line"># systemctl restart glance-api</span><br><span class="line"># systemctl enable glance-api</span><br></pre></td></tr></table></figure>
+<p>验证glance服务</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"># wget http://bigdata.cg.lzu.edu.cn/cirros-0.5.2-x86_64-disk.img</span><br><span class="line"># qemu-img info  cirros-0.5.2-x86_64-disk.img</span><br><span class="line"># qemu-img convert -f qcow2 -O qcow2 cirros-0.5.2-x86_64-disk.img  cirros-0.5.2-x86_64-disk.qcow2</span><br><span class="line"># qemu-img convert -f qcow2 -O raw cirros-0.5.2-x86_64-disk.img  cirros-0.5.2-x86_64-disk.raw</span><br><span class="line"># openstack image create  cirros-0.5.2  --file /root/cirros-0.5.2-x86_64-disk.qcow2  --disk-format qcow2 --container-format bare  --public</span><br><span class="line"># openstack image list</span><br></pre></td></tr></table></figure>
+<p>#openstack image show cirros-0.5.2</p>
+<p><img src="/images/posts/openstack-lab-notes/image-021.png" alt="操作截图 21" /></p>
+<p>验证完毕。</p>
+<h3 id="43-验证placement服务"><a class="markdownIt-Anchor" href="#43-验证placement服务"></a> 4.3 验证placement服务</h3>
+<p>创建glancement database</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"># mysql -u root -p</span><br><span class="line">&gt;  create database placement;</span><br><span class="line">&gt;  grant all privileges on placement.* to placement@localhost identified by &#x27;Placement!2024&#x27;;</span><br><span class="line">&gt;  grant all privileges on placement.* to placement@&#x27;%&#x27; identified by &#x27;Placement!2024&#x27;;</span><br><span class="line">&gt;  flush privileges;</span><br><span class="line">&gt;  exit</span><br><span class="line">create placement user in service project</span><br><span class="line"># openstack user create --domain default --project service --password &#x27;Placement!2024&#x27; placement</span><br><span class="line"># openstack role add --project service --user placement admin</span><br><span class="line"># openstack service create --name placement --description &quot;Placement API&quot; placement</span><br><span class="line"># controller=192.168.56.103</span><br><span class="line"># openstack endpoint create --region RegionOne placement public http://$controller:8778</span><br><span class="line"># openstack endpoint create --region RegionOne placement internal http://$controller:8778</span><br><span class="line"># openstack endpoint create --region RegionOne placement admin http://$controller:8778</span><br><span class="line"># openstack endpoint list</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-022.png" alt="操作截图 22" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"># apt  install -y placement-api</span><br><span class="line"># mv /etc/placement/placement.conf /etc/placement/placement.conf.org</span><br><span class="line"># vi /etc/placement/placement.conf</span><br><span class="line">[DEFAULT]</span><br><span class="line">debug = false</span><br><span class="line">[placement_database]</span><br><span class="line">connection = mysql+pymysql://placement:Placement!2024@192.168.56.103/placement</span><br><span class="line">[api]</span><br><span class="line">auth_strategy = keystone</span><br><span class="line">[keystone_authtoken]</span><br><span class="line">www_authenticate_uri = http://192.168.56.103:5000</span><br><span class="line">auth_url = http://192.168.56.103:5000</span><br><span class="line">memcached_servers = 192.168.56.103:11211</span><br><span class="line">auth_type = password</span><br><span class="line">project_domain_name = default</span><br><span class="line">user_domain_name = default</span><br><span class="line">project_name = service</span><br><span class="line">username = placement</span><br><span class="line">password = Placement!2024</span><br><span class="line"># chmod 640 /etc/placement/placement.conf</span><br><span class="line"># chown root:placement /etc/placement/placement.conf</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-023.png" alt="操作截图 23" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># su -s /bin/sh -c &quot;placement-manage db sync&quot; placement</span><br><span class="line"># systemctl restart apache2</span><br><span class="line"># cat /etc/apache2/sites-enabled/placement-api.conf</span><br></pre></td></tr></table></figure>
+<p>进行验证</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># placement-status upgrade check</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-024.png" alt="操作截图 24" /></p>
+<p>验证完毕。</p>
+<h3 id="44-验证nova服务"><a class="markdownIt-Anchor" href="#44-验证nova服务"></a> 4.4 验证nova服务</h3>
+<p>创建nova database</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"># mysql -u root -p</span><br><span class="line">&gt; create database nova;</span><br><span class="line">&gt; create database nova_api;</span><br><span class="line">&gt; create database nova_cell0;</span><br><span class="line">&gt; grant all privileges on nova.* to nova@localhost identified by &#x27;Nova!2024&#x27;;</span><br><span class="line">&gt; grant all privileges on nova.* to nova@&#x27;%&#x27; identified by &#x27;Nova!2024&#x27;;</span><br><span class="line">&gt; grant all privileges on nova_api.* to nova@localhost identified by &#x27;Nova!2024&#x27;;</span><br><span class="line">&gt; grant all privileges on nova_api.* to nova@&#x27;%&#x27; identified by &#x27;Nova!2024&#x27;;</span><br><span class="line">&gt; grant all privileges on nova_cell0.* to nova@localhost  identified by &#x27;Nova!2024&#x27;;</span><br><span class="line">&gt; grant all privileges on nova_cell0.* to nova@&#x27;%&#x27; identified by &#x27;Nova!2024&#x27;;</span><br><span class="line">&gt; flush privileges;</span><br><span class="line">&gt; exit</span><br><span class="line"># openstack user create --domain default --project service --password &#x27;Nova!2024&#x27; nova</span><br><span class="line"># openstack role add --project service --user nova admin</span><br><span class="line"># openstack service create --name nova --description &quot;OpenStack Compute&quot; compute</span><br><span class="line"># controller=192.168.56.103</span><br><span class="line"># openstack endpoint create --region RegionOne compute public http://$controller:8774/v2.1/%\(tenant_id\)s</span><br><span class="line"># openstack endpoint create --region RegionOne compute internal http://$controller:8774/v2.1/%\(tenant_id\)s</span><br><span class="line"># openstack endpoint create --region RegionOne compute admin http://$controller:8774/v2.1/%\(tenant_id\)s</span><br><span class="line"># openstack endpoint list</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-025.png" alt="操作截图 25" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br></pre></td><td class="code"><pre><span class="line"># apt -y install nova-api nova-conductor nova-scheduler nova-novncproxy python3-novaclient</span><br><span class="line">create a new config file</span><br><span class="line"># mv /etc/nova/nova.conf  /etc/nova/nova.conf.org</span><br><span class="line"># vi /etc/nova/nova.conf</span><br><span class="line">[DEFAULT]</span><br><span class="line">my_ip = 192.168.56.103</span><br><span class="line">state_path = /var/lib/nova</span><br><span class="line">enabled_apis = osapi_compute,metadata</span><br><span class="line">log_dir = /var/log/nova</span><br><span class="line">transport_url = rabbit://openstack:Openstack!2024@192.168.56.103</span><br><span class="line">[api]</span><br><span class="line">auth_strategy = keystone</span><br><span class="line">[api_database]</span><br><span class="line">connection = mysql+pymysql://nova:Nova!2024@192.168.56.103/nova_api</span><br><span class="line">[database]</span><br><span class="line">connection = mysql+pymysql://nova:Nova!2024@192.168.56.103/nova</span><br><span class="line">[glance]</span><br><span class="line">api_servers = http://192.168.56.103:9292</span><br><span class="line">[keystone_authtoken]</span><br><span class="line">www_authenticate_uri = http://192.168.56.103:5000</span><br><span class="line">auth_url = http://192.168.56.103:5000</span><br><span class="line">memcached_servers = 192.168.56.103:11211</span><br><span class="line">auth_type = password</span><br><span class="line">project_domain_name = default</span><br><span class="line">user_domain_name = default</span><br><span class="line">project_name = service</span><br><span class="line">username = nova</span><br><span class="line">password = Nova!2024</span><br><span class="line">[oslo_concurrency]</span><br><span class="line">lock_path = $state_path/tmp</span><br><span class="line">[placement]</span><br><span class="line">auth_url = http://192.168.56.103:5000</span><br><span class="line">os_region_name = RegionOne</span><br><span class="line">auth_type = password</span><br><span class="line">project_domain_name = default</span><br><span class="line">user_domain_name = default</span><br><span class="line">project_name = service</span><br><span class="line">username = placement</span><br><span class="line">password = Placement!2024</span><br><span class="line">[scheduler]</span><br><span class="line">discover_hosts_in_cells_interval = 300</span><br><span class="line">[wsgi]</span><br><span class="line">api_paste_config = /etc/nova/api-paste.ini</span><br><span class="line"># chmod 640 /etc/nova/nova.conf</span><br><span class="line"># chown root.nova /etc/nova/nova.conf</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-026.png" alt="操作截图 26" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"># su -s /bin/sh -c &quot;nova-manage api_db sync&quot; nova</span><br><span class="line"># su -s /bin/sh -c &quot;nova-manage cell_v2 map_cell0&quot; nova</span><br><span class="line"># su -s /bin/sh -c &quot;nova-manage cell_v2 create_cell --name=cell1 --verbose&quot; nova</span><br><span class="line"># su -s /bin/sh -c &quot;nova-manage db sync&quot; nova</span><br><span class="line"># su -s /bin/sh -c &quot;nova-manage cell_v2 list_cells&quot; nova</span><br><span class="line"># systemctl restart nova-api nova-conductor nova-scheduler nova-novncproxy</span><br><span class="line"># systemctl enable nova-api nova-conductor nova-scheduler nova-novncproxy</span><br></pre></td></tr></table></figure>
+<p>进行验证</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># openstack compute service list</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-027.png" alt="操作截图 27" /></p>
+<p>安装KVM HyperVisor</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># apt -y install qemu-kvm libvirt-daemon-system libvirt-daemon virtinst bridge-utils libosinfo-bin libguestfs-tools virt-top</span><br><span class="line"># systemctl start libvirtd</span><br><span class="line"># systemctl enable libvirtd</span><br><span class="line"># virsh version</span><br><span class="line"># apt -y install nova-compute nova-compute-kvm</span><br></pre></td></tr></table></figure>
+<p>配置nova.conf文件</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line">vi /etc/nova/nova.conf</span><br><span class="line">[DEFAULT]</span><br><span class="line">my_ip = 192.168.56.103</span><br><span class="line">state_path = /var/lib/nova</span><br><span class="line">enabled_apis = osapi_compute,metadata</span><br><span class="line">log_dir = /var/log/nova</span><br><span class="line">transport_url = rabbit://openstack:Openstack!2024@192.168.56.103</span><br><span class="line">[api]</span><br><span class="line">auth_strategy = keystone</span><br><span class="line">[glance]</span><br><span class="line">api_servers = http://192.168.56.103:9292</span><br><span class="line">[keystone_authtoken]</span><br><span class="line">www_authenticate_uri = http://192.168.56.103:5000</span><br><span class="line">auth_url = http://192.168.56.103:5000</span><br><span class="line">memcached_servers = 192.168.56.103:11211</span><br><span class="line">auth_type = password</span><br><span class="line">project_domain_name = default</span><br><span class="line">user_domain_name = default</span><br><span class="line">project_name = service</span><br><span class="line">username = nova</span><br><span class="line">password = Nova!2024</span><br><span class="line">[oslo_concurrency]</span><br><span class="line">lock_path = $state_path/tmp</span><br><span class="line">[placement]</span><br><span class="line">auth_url = http://192.168.56.103:5000</span><br><span class="line">os_region_name = RegionOne</span><br><span class="line">auth_type = password</span><br><span class="line">project_domain_name = default</span><br><span class="line">user_domain_name = default</span><br><span class="line">project_name = service</span><br><span class="line">username = placement</span><br><span class="line">password = Placement!2024</span><br><span class="line">[scheduler]</span><br><span class="line">discover_hosts_in_cells_interval = 300</span><br><span class="line">[wsgi]</span><br><span class="line">api_paste_config = /etc/nova/api-paste.ini</span><br><span class="line">[vnc]</span><br><span class="line">enabled = True</span><br><span class="line">server_listen = 0.0.0.0</span><br><span class="line">server_proxyclient_address = $my_ip</span><br><span class="line">novncproxy_base_url = http://192.168.56.103:6080/vnc_auto.html</span><br><span class="line"># systemctl restart nova-compute</span><br><span class="line"># systemctl enable nova-compute</span><br><span class="line"># su -s /bin/sh -c &quot;nova-manage cell_v2 discover_hosts --verbose&quot; nova</span><br><span class="line"># openstack compute service list</span><br><span class="line"># openstack hypervisor list</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-028.png" alt="操作截图 28" /></p>
+<p><img src="/images/posts/openstack-lab-notes/image-029.png" alt="操作截图 29" /></p>
+<h3 id="45-验证neutron服务"><a class="markdownIt-Anchor" href="#45-验证neutron服务"></a> 4.5 验证neutron服务</h3>
+<p>创建neutron database</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"># mysql -u root –p</span><br><span class="line">&gt; create database neutron;</span><br><span class="line">&gt; grant all privileges on neutron.* to neutron@localhost identified by &#x27;Neutron!2024&#x27;;</span><br><span class="line">&gt; grant all privileges on neutron.* to neutron@&#x27;%&#x27; identified by &#x27;Neutron!2024&#x27;;</span><br><span class="line">&gt; flush privileges;</span><br><span class="line">&gt; exit</span><br><span class="line"># openstack user create --domain default --project service --password &#x27;Neutron!2024&#x27; neutron</span><br><span class="line"># openstack role add --project service --user neutron admin</span><br><span class="line"># openstack service create --name neutron --description &quot;OpenStack Networking service&quot; network</span><br><span class="line"># export network=192.168.56.103</span><br><span class="line"># openstack endpoint create --region RegionOne network public http://$network:9696</span><br><span class="line"># openstack endpoint create --region RegionOne network internal http://$network:9696</span><br><span class="line"># openstack endpoint create --region RegionOne network admin http://$network:9696</span><br><span class="line"># openstack endpoint list</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-030.png" alt="操作截图 30" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"># apt -y install neutron-server  neutron-metadata-agent neutron-plugin-ml2  neutron-dhcp-agent neutron-l3-agent  python3-neutronclient  neutron-openvswitch-agent</span><br><span class="line"># apt -y install neutron-common neutron-plugin-ml2 neutron-openvswitch-agent</span><br><span class="line"># ip addr</span><br><span class="line"># vi /etc/netplan/00-installer-config.yaml network:</span><br><span class="line">network:</span><br><span class="line">ethernets:</span><br><span class="line">enp0s3:</span><br><span class="line">dhcp4: true</span><br><span class="line">enp0s8:</span><br><span class="line">dhcp4: true</span><br><span class="line">enp0s9:</span><br><span class="line">dhcp4: false</span><br><span class="line">version: 2</span><br><span class="line"># netplan apply</span><br><span class="line"># ovs-vsctl show</span><br><span class="line"># ovs-vsctl add-br br-eth</span><br><span class="line"># ovs-vsctl add-port br-eth  enp0s9</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-031.png" alt="操作截图 31" /></p>
+<p>Controller Node config file:</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"># cd /etc/neutron/</span><br><span class="line"># mv neutron.conf neutron.conf.org</span><br><span class="line"># mv metadata_agent.ini metadata_agent.ini.org</span><br><span class="line"># mv l3_agent.ini l3_agent.ini.org</span><br><span class="line"># mv dhcp_agent.ini dhcp_agent.ini.org</span><br><span class="line"># cd /etc/neutron/plugins/ml2/</span><br><span class="line"># mv ml2_conf.ini ml2_conf.ini.org</span><br><span class="line"># mv openvswitch_agent.ini openvswitch_agent.ini.org</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-032.png" alt="操作截图 32" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br></pre></td><td class="code"><pre><span class="line"># vi /etc/neutron/neutron.conf</span><br><span class="line">[DEFAULT]</span><br><span class="line">core_plugin = ml2</span><br><span class="line">service_plugins = router</span><br><span class="line">auth_strategy = keystone</span><br><span class="line">state_path = /var/lib/neutron</span><br><span class="line">dhcp_agent_notification = True</span><br><span class="line">allow_overlapping_ips = True</span><br><span class="line">notify_nova_on_port_status_changes = True</span><br><span class="line">notify_nova_on_port_data_changes = True</span><br><span class="line">transport_url = rabbit://openstack:Openstack!2024@192.168.56.103</span><br><span class="line">[database]</span><br><span class="line">connection = mysql+pymysql://neutron:Neutron!2024@192.168.56.103/neutron</span><br><span class="line">[agent]</span><br><span class="line">root_helper = sudo /usr/bin/neutron-rootwrap /etc/neutron/rootwrap.conf</span><br><span class="line">[keystone_authtoken]</span><br><span class="line">www_authenticate_uri = http://192.168.56.103:5000</span><br><span class="line">auth_url = http://192.168.56.103:5000</span><br><span class="line">memcached_servers = 192.168.56.103:11211</span><br><span class="line">auth_type = password</span><br><span class="line">project_domain_name = default</span><br><span class="line">user_domain_name = default</span><br><span class="line">project_name = service</span><br><span class="line">username = neutron</span><br><span class="line">password = Neutron!2024</span><br><span class="line">[nova]</span><br><span class="line">auth_url = http://192.168.56.103:5000</span><br><span class="line">auth_type = password</span><br><span class="line">project_domain_name = default</span><br><span class="line">user_domain_name = default</span><br><span class="line">region_name = RegionOne</span><br><span class="line">project_name = service</span><br><span class="line">username = nova</span><br><span class="line">password = Nova!2024</span><br><span class="line">[oslo_concurrency]</span><br><span class="line">lock_path = $state_path/tmp</span><br><span class="line"># vi /etc/neutron/l3_agent.ini</span><br><span class="line">[DEFAULT]</span><br><span class="line">interface_driver = openvswitch</span><br><span class="line"># vi /etc/neutron/dhcp_agent.ini</span><br><span class="line">[DEFAULT]</span><br><span class="line">interface_driver = openvswitch</span><br><span class="line">dhcp_driver = neutron.agent.linux.dhcp.Dnsmasq</span><br><span class="line">enable_isolated_metadata = true</span><br><span class="line"># vi /etc/neutron/metadata_agent.ini</span><br><span class="line">[DEFAULT]</span><br><span class="line">nova_metadata_host = 192.168.56.103</span><br><span class="line">metadata_proxy_shared_secret = metadata_secret</span><br><span class="line">[cache]</span><br><span class="line">memcache_servers = 192.168.56.103:11211</span><br><span class="line"># vi /etc/neutron/plugins/ml2/ml2_conf.ini</span><br><span class="line">[DEFAULT]</span><br><span class="line">[ml2]</span><br><span class="line">type_drivers = flat,vlan,gre,vxlan</span><br><span class="line">tenant_network_types =</span><br><span class="line">mechanism_drivers = openvswitch</span><br><span class="line">extension_drivers = port_security</span><br><span class="line">[ml2_type_flat]</span><br><span class="line">flat_networks = physnet1</span><br><span class="line">[ml2_type_vlan]</span><br><span class="line">network_vlan_ranges = physnet1:1:1000</span><br><span class="line"># vi  /etc/neutron/plugins/ml2/openvswitch_agent.ini</span><br><span class="line">[DEFAULT]</span><br><span class="line">[ovs]</span><br><span class="line">bridge_mappings = physnet1:br-eth</span><br><span class="line">[securitygroup]</span><br><span class="line">firewall_driver = openvswitch</span><br><span class="line">enable_security_group = true</span><br><span class="line">enable_ipset = true</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-033.png" alt="操作截图 33" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">chmod 640 /etc/neutron/dhcp_agent.ini</span><br><span class="line">chmod 640 /etc/neutron/l3_agent.ini</span><br><span class="line">chmod 640 /etc/neutron/metadata_agent.ini</span><br><span class="line">chmod 640 /etc/neutron/neutron.conf</span><br><span class="line">chmod 640 /etc/neutron/plugins/ml2/ml2_conf.ini</span><br><span class="line">chmod 640 /etc/neutron/plugins/ml2/openvswitch_agent.ini</span><br><span class="line">chgrp neutron /etc/neutron/dhcp_agent.ini</span><br><span class="line">chgrp neutron /etc/neutron/l3_agent.ini</span><br><span class="line">chgrp neutron /etc/neutron/metadata_agent.ini</span><br><span class="line">chgrp neutron /etc/neutron/neutron.conf</span><br><span class="line">chgrp neutron /etc/neutron/plugins/ml2/ml2_conf.ini</span><br><span class="line">chgrp neutron /etc/neutron/plugins/ml2/openvswitch_agent.ini</span><br><span class="line">ln -s /etc/neutron/plugins/ml2/ml2_conf.ini /etc/neutron/plugin.ini</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-034.png" alt="操作截图 34" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"># vi /etc/nova/nova.conf</span><br><span class="line">[DEFAULT]</span><br><span class="line">use_neutron = True</span><br><span class="line">linuxnet_interface_driver = nova.network.linux_net.LinuxOVSInterfaceDriver</span><br><span class="line">firewall_driver = nova.virt.firewall.NoopFirewallDriver</span><br><span class="line">vif_plugging_is_fatal = True</span><br><span class="line">vif_plugging_timeout = 300</span><br><span class="line">[neutron]</span><br><span class="line">auth_url = http://192.168.100.100:5000</span><br><span class="line">auth_type = password</span><br><span class="line">project_domain_name = default</span><br><span class="line">user_domain_name = default</span><br><span class="line">region_name = RegionOne</span><br><span class="line">project_name = service</span><br><span class="line">username = neutron</span><br><span class="line">password = Neutron!2024</span><br><span class="line">service_metadata_proxy = True</span><br><span class="line">metadata_proxy_shared_secret = metadata_secret</span><br><span class="line"># su -s /bin/bash neutron -c &quot;neutron-db-manage --config-file /etc/neutron/neutron.conf --config-file /etc/neutron/plugin.ini upgrade head&quot;</span><br><span class="line"># systemctl restart neutron-server neutron-metadata-agent neutron-dhcp-agent neutron-openvswitch-agent</span><br><span class="line"># systemctl enable neutron-server neutron-metadata-agent neutron-dhcp-agent neutron-openvswitch-agent</span><br><span class="line"># systemctl restart nova-api</span><br><span class="line"># systemctl disable neutron-l3-agent &amp;&amp; systemctl stop neutron-l3agent</span><br><span class="line"># openstack  network agent list</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-035.png" alt="操作截图 35" /></p>
+<p>因为本实验所有内容在一台虚拟机上完成，前面配置的是控制节点的neutron服务，计算节点的neutron服务配置文件内容比控制节点的配置更简化，这里不再重新配置。因为该虚拟机既是控制节点也是计算节点，从上图中可以看到计算节点的服务也成功启动了。下面配置一下子网。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># openstack network create --project service --share --external --provider-network-type flat --provider-physical-network physnet1 network1</span><br><span class="line"># openstack network list</span><br><span class="line"># openstack network show network1</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-036.png" alt="操作截图 36" /></p>
+<p>创建子网，Provider网络由外部网络决定。创建了名为subnent1的子网，网络地址段为192.168.57.0/24。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># openstack subnet create subnet1 --network network1 --subnet-range 192.168.57.0/24 --allocation-pool start=192.168.57.2,end=192.168.57.254 --gateway 192.168.57.1 --dns-nameserver  202.201.0.133</span><br><span class="line"># openstack subnet list</span><br><span class="line"># openstack subnet show subnet1</span><br><span class="line"># openstack port list</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-037.png" alt="操作截图 37" /></p>
+<p><img src="/images/posts/openstack-lab-notes/image-038.png" alt="操作截图 38" /></p>
+<h3 id="46-创建一个实例虚拟机"><a class="markdownIt-Anchor" href="#46-创建一个实例虚拟机"></a> 4.6 创建一个实例(虚拟机)</h3>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># openstack image list</span><br><span class="line"># openstack flavor create --id 0 --vcpus 1 --ram 1024 --disk 1 small1</span><br><span class="line"># openstack flavor list</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-039.png" alt="操作截图 39" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># openstack keypair create --public-key ~/.ssh/id_rsa.pub key1</span><br><span class="line"># openstack keypair list</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-040.png" alt="操作截图 40" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">#  openstack security group list</span><br><span class="line">#  openstack security group create web-default</span><br><span class="line">#  openstack security group rule create --protocol tcp --dst-port 80:80 --ingress web-default</span><br><span class="line">#  openstack security group rule create --protocol tcp --dst-port 443:443 --ingress web-default</span><br><span class="line">#  openstack security group rule create --protocol tcp --dst-port 22:22 --ingress web-default</span><br><span class="line">#  openstack security group rule create --protocol icmp --icmp-type 8 --icmp-code 0  --ingress web-default</span><br><span class="line"># openstack server create --flavor small1 --image  cirros-0.5.2 \</span><br><span class="line">--security-group web-default --nic net-id=network1 --key-name key1 cirrostest1</span><br><span class="line"># openstack server list</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-041.png" alt="操作截图 41" /></p>
+<p>创建成功。</p>
+<h3 id="47-安装dashboard"><a class="markdownIt-Anchor" href="#47-安装dashboard"></a> 4.7 安装dashboard</h3>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"># apt -y install openstack-dashboard</span><br><span class="line"># mv /etc/openstack-dashboard/local_settings.py /etc/openstack-dashboard/local_settings.py.org</span><br><span class="line"># grep -Ev &#x27;^$|#&#x27; /etc/openstack-dashboard/local_settings.py.org &gt; /etc/openstack-dashboard/local_settings.py</span><br><span class="line"># chown root:horizon /etc/openstack-dashboard/local_settings.py</span><br><span class="line"># chmod 640 /etc/openstack-dashboard/local_settings.py</span><br><span class="line"># vi /etc/openstack-dashboard/local_settings.py</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-042.png" alt="操作截图 42" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># systemctl restart apache2</span><br></pre></td></tr></table></figure>
+<p>然后我们访问<a target="_blank" rel="noopener" href="http://192.168.56.103/horizon">http://192.168.56.103/horizon</a></p>
+<p>账户为admin，密码为Keystone!2024</p>
+<p><img src="/images/posts/openstack-lab-notes/image-043.png" alt="操作截图 43" /></p>
+<p><img src="/images/posts/openstack-lab-notes/image-044.png" alt="操作截图 44" /></p>
+<p><img src="/images/posts/openstack-lab-notes/image-045.png" alt="操作截图 45" /></p>
+<h3 id="48-实现cinder"><a class="markdownIt-Anchor" href="#48-实现cinder"></a> 4.8 实现cinder</h3>
+<p>创建cinder database:</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"># mysql -u root -p</span><br><span class="line">&gt; create database cinder;</span><br><span class="line">&gt; grant all privileges on cinder.* to cinder@localhost identified by &#x27;Cinder!2024&#x27;;</span><br><span class="line">&gt; grant all privileges on cinder.* to cinder@&#x27;%&#x27; identified by &#x27;Cinder!2024&#x27;;</span><br><span class="line">&gt; flush privileges;</span><br><span class="line">&gt; exit</span><br><span class="line"># openstack user create --domain default --project service --password &#x27;Cinder!2024&#x27; cinder</span><br><span class="line"># openstack role add --project service --user cinder admin</span><br><span class="line"># openstack service create --name cinderv3 --description &quot;OpenStack Block Storage&quot; volumev3</span><br><span class="line"># export controller=192.168.100.100</span><br><span class="line"># openstack endpoint create --region RegionOne volumev3 public http://$controller:8776/v3/%\(tenant_id\)s</span><br><span class="line"># openstack endpoint create --region RegionOne volumev3 internal http://$controller:8776/v3/%\(tenant_id\)s</span><br><span class="line"># openstack endpoint create --region RegionOne volumev3 admin http://$controller:8776/v3/%\(tenant_id\)s</span><br><span class="line"># openstack endpoint list</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-046.png" alt="操作截图 46" /></p>
+<p>安装cinder-api cinder-scheduler at controller node</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"># apt -y install cinder-api cinder-scheduler python3-cinderclient</span><br><span class="line"># mv /etc/cinder/cinder.conf /etc/cinder/cinder.conf.org</span><br><span class="line"># vi /etc/cinder/cinder.conf</span><br><span class="line"># chmod 640 /etc/cinder/cinder.conf</span><br><span class="line"># chgrp cinder /etc/cinder/cinder.conf</span><br><span class="line">[DEFAULT]</span><br><span class="line">my_ip = 192.168.56.103</span><br><span class="line">rootwrap_config = /etc/cinder/rootwrap.conf</span><br><span class="line">api_paste_confg = /etc/cinder/api-paste.ini</span><br><span class="line">state_path = /var/lib/cinder</span><br><span class="line">auth_strategy = keystone</span><br><span class="line">transport_url = rabbit://openstack:Openstack!2024@192.168.56.103</span><br><span class="line">enable_v3_api = True</span><br><span class="line">[database]</span><br><span class="line">connection = mysql+pymysql://cinder:Cinder!2024@192.168.56.103/cinder</span><br><span class="line">[keystone_authtoken]</span><br><span class="line">www_authenticate_uri = http://192.168.56.103:5000</span><br><span class="line">auth_url = http://192.168.56.103:5000</span><br><span class="line">memcached_servers = 192.168.56.103:11211</span><br><span class="line">auth_type = password</span><br><span class="line">project_domain_name = default</span><br><span class="line">user_domain_name = default</span><br><span class="line">project_name = service</span><br><span class="line">username = cinder</span><br><span class="line">password = Cinder!2024</span><br><span class="line">[oslo_concurrency]</span><br><span class="line">lock_path = $state_path/tmp</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-047.png" alt="操作截图 47" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">#  su -s /bin/bash cinder -c &quot;cinder-manage db sync&quot;</span><br><span class="line"># systemctl restart cinder-scheduler</span><br><span class="line"># echo &quot;export OS_VOLUME_API_VERSION=3&quot; &gt;&gt; ~/keystonerc</span><br><span class="line"># source ~/keystonerc</span><br><span class="line"># openstack volume service list</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-048.png" alt="操作截图 48" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"># apt -y install cinder-volume python3-mysqldb</span><br><span class="line"># mv /etc/cinder/cinder.conf /etc/cinder/cinder.conf.org</span><br><span class="line"># vi /etc/cinder/cinder.conf</span><br><span class="line"># chown root.cinder /etc/cinder/cinder.conf</span><br><span class="line"># chmod 640 /etc/cinder/cinder.conf</span><br><span class="line"># systemctl enable cinder-volume</span><br><span class="line">[DEFAULT]</span><br><span class="line">my_ip = 192.168.56.103</span><br><span class="line">rootwrap_config = /etc/cinder/rootwrap.conf</span><br><span class="line">api_paste_confg = /etc/cinder/api-paste.ini</span><br><span class="line">state_path = /var/lib/cinder</span><br><span class="line">auth_strategy = keystone</span><br><span class="line">transport_url = rabbit://openstack:Openstack!2024@192.168.56.103</span><br><span class="line">enable_v3_api = True</span><br><span class="line">glance_api_servers = http://192.168.56.103:9292</span><br><span class="line">enabled_backends =</span><br><span class="line">[database]</span><br><span class="line">connection = mysql+pymysql://cinder:Cinder!2024@192.168.56.103/cinder</span><br><span class="line">[keystone_authtoken]</span><br><span class="line">www_authenticate_uri = http://192.168.56.103:5000</span><br><span class="line">auth_url = http://192.168.56.103:5000</span><br><span class="line">memcached_servers = 192.168.56.103:11211</span><br><span class="line">auth_type = password</span><br><span class="line">project_domain_name = default</span><br><span class="line">user_domain_name = default</span><br><span class="line">project_name = service</span><br><span class="line">username = cinder</span><br><span class="line">password = Cinder!2024</span><br><span class="line">[oslo_concurrency]</span><br><span class="line">lock_path = $state_path/tmp</span><br><span class="line">[oslo_policy]</span><br><span class="line">enforce_new_defaults = true</span><br><span class="line"># openstack role list</span><br><span class="line"># openstack role create service</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-049.png" alt="操作截图 49" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># openstack role add --user cinder --project service service</span><br><span class="line"># openstack role add --user nova --project service service</span><br></pre></td></tr></table></figure>
+<p>#vi /etc/cinder/cinder.conf</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">[service_user]</span><br><span class="line">send_service_user_token = True</span><br><span class="line">auth_url = http://192.168.56.103:5000</span><br><span class="line">project_domain_name = Default</span><br><span class="line">project_name = service</span><br><span class="line">user_domain_name = Default</span><br><span class="line">auth_type = password</span><br><span class="line">username = cinder</span><br><span class="line">password = Cinder!2024</span><br><span class="line"># vi /etc/nova/nova.conf</span><br><span class="line">[keystone_authtoken]</span><br><span class="line">service_token_roles = service</span><br><span class="line">service_token_roles_required = true</span><br><span class="line">[service_user]</span><br><span class="line">send_service_user_token = True</span><br><span class="line">auth_url = http://192.168.56.103:5000</span><br><span class="line">project_domain_name = Default</span><br><span class="line">project_name = service</span><br><span class="line">user_domain_name = Default</span><br><span class="line">auth_type = password</span><br><span class="line">username = cinder</span><br><span class="line">password = Cinder!2024</span><br><span class="line">[cinder]</span><br><span class="line">region_name = RegionOne</span><br><span class="line"># systemctl restart nova-compute</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-050.png" alt="操作截图 50" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># systemctl enable cinder-volume</span><br><span class="line"># apt -y install open-iscsi</span><br><span class="line"># lsblk</span><br><span class="line"># pvcreate /dev/sdb</span><br><span class="line"># vgcreate cinder_data /dev/sdb</span><br></pre></td></tr></table></figure>
+<p>增加volume服务相关配置</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"># vi /etc/cinder/cinder.conf</span><br><span class="line">[DEFAULT]</span><br><span class="line">enabled_backends = lvm</span><br><span class="line">[lvm]</span><br><span class="line">target_helper = lioadm</span><br><span class="line">target_protocol = iscsi</span><br><span class="line"># IP address of Storage Node</span><br><span class="line">target_ip_address = 192.168.56.103</span><br><span class="line"># volume group name just created</span><br><span class="line">volume_group = cinder_data</span><br><span class="line">volume_driver = cinder.volume.drivers.lvm.LVMVolumeDriver</span><br><span class="line">volumes_dir = $state_path/volumes</span><br></pre></td></tr></table></figure>
+<p>启动服务</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># systemctl restart cinder-volume.service</span><br><span class="line"># openstack volume service list</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-051.png" alt="操作截图 51" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># openstack volume create --size 10 disk01</span><br><span class="line"># openstack volume list</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-052.png" alt="操作截图 52" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># vgdisplay</span><br><span class="line"># lvdisplay</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-053.png" alt="操作截图 53" /></p>
+<p>计算节点配置安装过程与控制节点基本一致，这里不再展示，因为我使用的是一台主机完成全部实验。</p>
+<h3 id="49创建实例与冷迁移"><a class="markdownIt-Anchor" href="#49创建实例与冷迁移"></a> 4.9创建实例与冷迁移</h3>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">openstack compute service list</span><br></pre></td></tr></table></figure>
+<p>冷迁移只需做计算节点间nova用户ssh免密认证即可，因为我们这里是伪集群，因此我们需要做一些调整</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"># usermod -s /bin/bash nova</span><br><span class="line"># su - nova</span><br><span class="line">$ ssh-keygen -t rsa -P &#x27;&#x27; -f ~/.ssh/id_rsa</span><br><span class="line">$ cat ~/.ssh/id_rsa.pub &gt;&gt; ~/.ssh/authorized_keys</span><br><span class="line">$ chmod 600 ~/.ssh/authorized_keys</span><br><span class="line">$ vi ~/.ssh/config</span><br><span class="line">Host *</span><br><span class="line">StrictHostKeyChecking no</span><br><span class="line">$ chmod 600 ~/.ssh/config</span><br></pre></td></tr></table></figure>
+<p>其他计算节点从完成ssh免密认证的节点远程拷贝配置，并修改文件属主和属组</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># ssh node03</span><br><span class="line"># scp -r node02:/var/lib/nova/.ssh /var/lib/nova/</span><br><span class="line"># chown -R nova.nova /var/lib/nova/.ssh/</span><br></pre></td></tr></table></figure>
+<p>给所有节点nova.conf配置文件[DEFAULT]下添加冷迁移配置并重启服务</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># vi /etc/nova/nova.conf</span><br><span class="line">[DEFAULT]</span><br><span class="line">resume_guests_state_on_host_boot = true</span><br><span class="line">allow_resize_to_same_host=True</span><br><span class="line">enabled_filters = AvailabilityZoneFilter,ComputeFilter,ComputeCapabilitiesFilter,ImagePropertiesFilter,ServerGroupAntiAffinityFilter,ServerGroupAffinityFilter</span><br></pre></td></tr></table></figure>
+<p>控制节点重启服务</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># systemctl restart nova-api nova-conductor nova-scheduler nova-novncproxy</span><br></pre></td></tr></table></figure>
+<p>计算节点重启服务</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># systemctl restart nova-compute</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/openstack-lab-notes/image-054.png" alt="操作截图 54" /></p>
+<p>到这里，实例创建、Cinder 卷服务和冷迁移流程都已经跑通。由于当前环境是单机伪集群，没有继续展开热迁移。</p>
+<h2 id="五-一些记录"><a class="markdownIt-Anchor" href="#五-一些记录"></a> 五、一些记录</h2>
+<p>这次 OpenStack 搭建主要有三点收获：</p>
+<p>（1）环境准备和基础配置很关键，包括网络、主机名、时区、SSH 和系统参数优化。OpenStack 组件很多，前期基础环境不稳定，后面排错成本会很高。</p>
+<p>（2）Keystone、Glance、Placement、Nova、Neutron、Cinder 之间的依赖关系需要逐层验证。每完成一个服务，都要通过 endpoint、service list 或资源创建命令确认状态。</p>
+<p>（3）OpenStack 的复杂度不在单个命令，而在配置一致性。数据库连接、RabbitMQ 地址、Keystone 认证、服务用户、endpoint 和 systemd 服务状态需要全部对齐。</p>
+<p>后续如果继续扩展，可以把控制节点和计算节点拆开，再补充多节点调度、热迁移和更完整的存储后端。</p>
+
+      
+    </div>
+    <div class="article-footer">
+      
+<blockquote class="mt-2x">
+  <ul class="post-copyright list-unstyled">
+    
+    <li class="post-copyright-link hidden-xs">
+      <strong>本文链接：</strong>
+      <a href="https://zhouzhq2021.github.io/2026/06/08/openstack-lab-notes/" title="OpenStack 实践：完整环境搭建与服务验证" target="_blank" rel="external">https://zhouzhq2021.github.io/2026/06/08/openstack-lab-notes/</a>
+    </li>
+    
+    <li class="post-copyright-license">
+      <strong>版权声明： </strong> 本博客所有文章除特别声明外，均采用 <a href="http://creativecommons.org/licenses/by/4.0/deed.zh" target="_blank" rel="external">CC BY 4.0 CN协议</a> 许可协议。转载请注明出处！
+    </li>
+  </ul>
+</blockquote>
+
+
+    </div>
+  </article>
+  
+    
+  <section id="comments">
+  	
+           
+    
+  </section>
+
+
+  
+</div>
+
+  <nav class="bar bar-footer clearfix" data-stick-bottom>
+  <div class="bar-inner">
+  
+  <ul class="pager pull-left">
+    
+    <li class="prev">
+      <a href="/2026/06/08/ceph-cluster-lab-notes/" title="Ceph Cluster Installation：分布式存储集群搭建与使用"><i class="icon icon-angle-left" aria-hidden="true"></i><span>&nbsp;&nbsp;Newer</span></a>
+    </li>
+    
+    
+    
+  </ul>
+  
+  
+  
+  <div class="bar-right">
+    
+  </div>
+  </div>
+</nav>
+  
+
+
+
+</main>
+
+  <footer class="footer" itemscope itemtype="http://schema.org/WPFooter">
+	
+	
+    <ul class="social-links">
+    	
+        <li><a href="https://github.com/zhouzhq2021" target="_blank" title="Github" data-toggle=tooltip data-placement=top><i class="icon icon-github"></i></a></li>
+        
+        <li><a href="mailto:zhouzhq2021@sjtu.edu.cn" target="_blank" title="Email" data-toggle=tooltip data-placement=top><i class="icon icon-email"></i></a></li>
+        
+        <li><a href="/atom.xml" target="_blank" title="Rss" data-toggle=tooltip data-placement=top><i class="icon icon-rss"></i></a></li>
+        
+    </ul>
+
+    <div class="copyright">
+    	
+        &copy; 2026 Zhongquan Zhou
+        
+        <div class="publishby">
+        	Theme by <a href="https://github.com/cofess" target="_blank"> cofess </a>base on <a href="https://github.com/cofess/hexo-theme-pure" target="_blank">pure</a>.
+        </div>
+    </div>
+</footer>
+  <script src="//cdn.jsdelivr.net/npm/jquery@1.12.4/dist/jquery.min.js"></script>
+<script>
+window.jQuery || document.write('<script src="js/jquery.min.js"><\/script>')
+</script>
+
+<script src="/js/plugin.min.js"></script>
+
+
+<script src="/js/application.js"></script>
+
+
+    <script>
+(function (window) {
+    var INSIGHT_CONFIG = {
+        TRANSLATION: {
+            POSTS: 'Posts',
+            PAGES: 'Pages',
+            CATEGORIES: 'Categories',
+            TAGS: 'Tags',
+            UNTITLED: '(Untitled)',
+        },
+        ROOT_URL: '/',
+        CONTENT_URL: '/content.json',
+    };
+    window.INSIGHT_CONFIG = INSIGHT_CONFIG;
+})(window);
+</script>
+
+<script src="/js/insight.js"></script>
+
+
+
+
+
+
+   
+<script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+   
+    
+  <!-- <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css"> -->
+  <script src="//cdn.jsdelivr.net/npm/gitalk@1.6.2/dist/gitalk.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/blueimp-md5@2.10.0/js/md5.min.js"></script>
+  <script type="text/javascript">
+  var gitalk = new Gitalk({
+    clientID: 'Ov23ligxx5efd5yRAiAq',
+    clientSecret: '3114825a44fe2c1af88fabb6c926e5a3e0256f27',
+    repo: 'zhouzhq2021.github.io',
+    owner: 'zhouzhq2021',
+    admin: ['zhouzhq2021'],
+    id: md5(location.pathname),
+    distractionFreeMode: true,
+    language: 'en',
+    enableHotKey: 'true'
+  })
+  gitalk.render('comments')
+  </script>
+      
+
+
+
+  <script src="//cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.3.5/dist/jquery.fancybox.min.js"></script>
+  <script>
+  //利用 FancyBox 实现点击图片放大
+  $(document).ready(function() {
+    $('article img').not('[hidden]').not('.panel-body img').each(function() {
+      var $image = $(this);
+      var imageCaption = $image.attr('alt');
+      var $imageWrapLink = $image.parent('a');
+      if ($imageWrapLink.length < 1) {
+        var src = this.getAttribute('src');
+        var idx = src.lastIndexOf('?');
+        if (idx != -1) {
+          src = src.substring(0, idx);
+        }
+        $imageWrapLink = $image.wrap('<a href="' + src + '"></a>').parent('a');
+      }
+      $imageWrapLink.attr('data-fancybox', 'images');
+      if (imageCaption) {
+        $imageWrapLink.attr('data-caption', imageCaption);
+      }
+    });
+    $().fancybox({
+      selector: '[data-fancybox="images"]',
+      hash: false,
+      loop: false,
+    });
+  });
+  </script>
+
+
+
+
+
+</body>
+</html>

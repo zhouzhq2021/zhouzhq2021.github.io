@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang=en>
+<head>
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, minimal-ui">
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="Cache-Control" content="no-transform" />
+  <meta http-equiv="Cache-Control" content="no-siteapp" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="format-detection" content="telephone=no,email=no,adress=no">
+  <!-- Color theme for statusbar -->
+  <meta name="theme-color" content="#000000" />
+  <!-- 强制页面在当前窗口以独立页面显示,防止别人在框架里调用页面 -->
+  <meta http-equiv="window-target" content="_top" />
+  
+  
+  <title>Ceph Cluster Installation：分布式存储集群搭建与使用 | Zhongquan Zhou&#39;s Blog</title>
+  <meta name="description" content="Ceph 可以同时提供块存储、文件存储和对象存储，适合作为云平台和大数据平台的底层存储。这篇记录按实际操作顺序整理，从三节点集群初始化开始，逐步完成 Dashboard、MDS、RGW、RBD、iSCSI、CephFS 和 S3 访问验证。  一、目标与环境准备 这次主要围绕 Ceph 存储的安装、配置和使用展开： • 安装 ceph • 配置 Mon，OSD，MGR，Dashboard，MDS">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Ceph Cluster Installation：分布式存储集群搭建与使用">
+<meta property="og:url" content="https://zhouzhq2021.github.io/2026/06/08/ceph-cluster-lab-notes/index.html">
+<meta property="og:site_name" content="Zhongquan Zhou&#39;s Blog">
+<meta property="og:description" content="Ceph 可以同时提供块存储、文件存储和对象存储，适合作为云平台和大数据平台的底层存储。这篇记录按实际操作顺序整理，从三节点集群初始化开始，逐步完成 Dashboard、MDS、RGW、RBD、iSCSI、CephFS 和 S3 访问验证。  一、目标与环境准备 这次主要围绕 Ceph 存储的安装、配置和使用展开： • 安装 ceph • 配置 Mon，OSD，MGR，Dashboard，MDS">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-003.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-004.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-005.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-006.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-007.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-008.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-009.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-010.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-011.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-012.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-013.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-014.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-015.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-016.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-017.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-018.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-019.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-020.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-021.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-022.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-023.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-024.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-025.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-026.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-027.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-028.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-029.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-030.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-031.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-032.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-033.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-034.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-035.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-036.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-037.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-038.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-039.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-040.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-041.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-042.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-043.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-044.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-045.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-046.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-047.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-048.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-049.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-050.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-051.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-052.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-053.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-054.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-055.png">
+<meta property="article:published_time" content="2026-06-08T03:20:00.000Z">
+<meta property="article:modified_time" content="2026-06-08T04:41:53.514Z">
+<meta property="article:author" content="Zhongquan Zhou">
+<meta property="article:tag" content="Ceph">
+<meta property="article:tag" content="Distributed Storage">
+<meta property="article:tag" content="S3">
+<meta property="article:tag" content="RBD">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://zhouzhq2021.github.io/images/posts/ceph-cluster-lab-notes/image-003.png">
+  <!-- Canonical links -->
+  <link rel="canonical" href="https://zhouzhq2021.github.io/2026/06/08/ceph-cluster-lab-notes/index.html">
+  
+    <link rel="alternate" href="/atom.xml" title="Zhongquan Zhou&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+  
+  
+    <link href="//cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.3.5/dist/jquery.fancybox.min.css" rel="stylesheet">
+  
+  
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1.4.0/dist/gitalk.min.css">
+  
+  <link rel="stylesheet" type="text/css" href="/css/custom.css">
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body class="main-center" itemscope itemtype="http://schema.org/WebPage">
+  <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+  <div class="slimContent">
+    <div class="navbar-header">
+      
+      
+      <div class="profile-block text-center">
+        <a id="avatar" href="https://github.com/zhouzhq2021" target="_blank">
+          <img class="img-circle img-rotate" src="/images/avatar-20260605.jpg" width="200" height="200">
+        </a>
+        <h2 id="name" class="hidden-xs hidden-sm">Zhongquan Zhou</h2>
+        <h3 id="title" class="hidden-xs hidden-sm hidden-md">Computer Science Graduate Student @ Shanghai Jiao Tong University</h3>
+        <small id="location" class="text-muted hidden-xs hidden-sm"><i class="icon icon-map-marker"></i> Shanghai, China</small>
+      </div>
+      
+      <div class="search" id="search-form-wrap">
+
+    <form class="search-form sidebar-form">
+        <div class="input-group">
+            <input type="text" class="search-form-input form-control" placeholder="Search" />
+            <span class="input-group-btn">
+                <button type="submit" class="search-form-submit btn btn-flat" onclick="return false;"><i class="icon icon-search"></i></button>
+            </span>
+        </div>
+    </form>
+    <div class="ins-search">
+  <div class="ins-search-mask"></div>
+  <div class="ins-search-container">
+    <div class="ins-input-wrapper">
+      <input type="text" class="ins-search-input" placeholder="Type something..." x-webkit-speech />
+      <button type="button" class="close ins-close ins-selectable" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">×</span></button>
+    </div>
+    <div class="ins-section-wrapper">
+      <div class="ins-section-container"></div>
+    </div>
+  </div>
+</div>
+
+
+</div>
+      <button class="navbar-toggle collapsed" type="button" data-toggle="collapse" data-target="#main-navbar" aria-controls="main-navbar" aria-expanded="false">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+    </div>
+    <nav id="main-navbar" class="collapse navbar-collapse" itemscope itemtype="http://schema.org/SiteNavigationElement" role="navigation">
+      <ul class="nav navbar-nav main-nav menu-highlight">
+        
+        
+        <li class="menu-item menu-item-home">
+          <a href="/.">
+            
+            <i class="icon icon-home-fill"></i>
+            
+            <span class="menu-title">Home</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories">
+            
+            <i class="icon icon-folder"></i>
+            
+            <span class="menu-title">Categories</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags">
+            
+            <i class="icon icon-tags"></i>
+            
+            <span class="menu-title">Tags</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-repository">
+          <a href="/repository">
+            
+            <i class="icon icon-project"></i>
+            
+            <span class="menu-title">Repository</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-books">
+          <a href="/books">
+            
+            <i class="icon icon-book-fill"></i>
+            
+            <span class="menu-title">Books</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-links">
+          <a href="/links">
+            
+            <i class="icon icon-friendship"></i>
+            
+            <span class="menu-title">Links</span>
+          </a>
+        </li>
+        
+      </ul>
+      
+	
+    <ul class="social-links">
+    	
+        <li><a href="https://github.com/zhouzhq2021" target="_blank" title="Github" data-toggle=tooltip data-placement=top><i class="icon icon-github"></i></a></li>
+        
+        <li><a href="mailto:zhouzhq2021@sjtu.edu.cn" target="_blank" title="Email" data-toggle=tooltip data-placement=top><i class="icon icon-email"></i></a></li>
+        
+        <li><a href="/atom.xml" target="_blank" title="Rss" data-toggle=tooltip data-placement=top><i class="icon icon-rss"></i></a></li>
+        
+    </ul>
+
+    </nav>
+  </div>
+</header>
+
+  
+    <aside class="sidebar" itemscope itemtype="http://schema.org/WPSideBar">
+  <div class="slimContent">
+    
+      <div class="widget">
+    <h3 class="widget-title">Board</h3>
+    <div class="widget-body">
+        <div id="board">
+            <div class="content">
+                <p>Welcome to my personal blog! Feel free to explore and share your thoughts!</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Contact</h3>
+    <div class="widget-body">
+      <ul class="sidebar-simple-list">
+        
+          
+          <li>
+            <span class="sidebar-contact-label">Email</span>
+            
+              <a href="mailto:zhouzhq2021@sjtu.edu.cn">zhouzhq2021@sjtu.edu.cn</a>
+            
+          </li>
+        
+          
+          <li>
+            <span class="sidebar-contact-label">GitHub</span>
+            
+              <a href="https://github.com/zhouzhq2021" target="_blank">github.com/zhouzhq2021</a>
+            
+          </li>
+        
+          
+          <li>
+            <span class="sidebar-contact-label">Location</span>
+            
+              <span>Shanghai, China</span>
+            
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Categories</h3>
+    <div class="widget-body">
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/Cloud-Computing-and-Big-Data/">Cloud Computing and Big Data</a><span class="category-list-count">4</span></li></ul>
+    </div>
+  </div>
+
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Tags</h3>
+    <div class="widget-body">
+      <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/Ceph/" rel="tag">Ceph</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Cloud-Computing/" rel="tag">Cloud Computing</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Distributed-Storage/" rel="tag">Distributed Storage</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Docker/" rel="tag">Docker</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/HDFS/" rel="tag">HDFS</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Hadoop/" rel="tag">Hadoop</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Helm/" rel="tag">Helm</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Kubernetes/" rel="tag">Kubernetes</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/NFS/" rel="tag">NFS</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/OpenStack/" rel="tag">OpenStack</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/RBD/" rel="tag">RBD</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Rancher/" rel="tag">Rancher</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/S3/" rel="tag">S3</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Spark/" rel="tag">Spark</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Virtualization/" rel="tag">Virtualization</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/YARN/" rel="tag">YARN</a><span class="tag-list-count">1</span></li></ul>
+    </div>
+  </div>
+
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Tag Cloud</h3>
+    <div class="widget-body tagcloud">
+      <a href="/tags/Ceph/" style="font-size: 13px;">Ceph</a> <a href="/tags/Cloud-Computing/" style="font-size: 13px;">Cloud Computing</a> <a href="/tags/Distributed-Storage/" style="font-size: 13px;">Distributed Storage</a> <a href="/tags/Docker/" style="font-size: 13px;">Docker</a> <a href="/tags/HDFS/" style="font-size: 13px;">HDFS</a> <a href="/tags/Hadoop/" style="font-size: 13px;">Hadoop</a> <a href="/tags/Helm/" style="font-size: 13px;">Helm</a> <a href="/tags/Kubernetes/" style="font-size: 13px;">Kubernetes</a> <a href="/tags/NFS/" style="font-size: 13px;">NFS</a> <a href="/tags/OpenStack/" style="font-size: 13px;">OpenStack</a> <a href="/tags/RBD/" style="font-size: 13px;">RBD</a> <a href="/tags/Rancher/" style="font-size: 13px;">Rancher</a> <a href="/tags/S3/" style="font-size: 13px;">S3</a> <a href="/tags/Spark/" style="font-size: 13px;">Spark</a> <a href="/tags/Virtualization/" style="font-size: 13px;">Virtualization</a> <a href="/tags/YARN/" style="font-size: 13px;">YARN</a>
+    </div>
+  </div>
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Archive</h3>
+    <div class="widget-body">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2026/06/">June 2026</a><span class="archive-list-count">4</span></li></ul>
+    </div>
+  </div>
+
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget-body">
+      <ul class="recent-post-list list-unstyled ">
+        
+          <li>
+            
+            <div class="item-thumb">
+              <a href="/2026/06/08/kubernetes-lab-notes/" class="thumb">
+    
+    
+        <span class="thumb-image thumb-none"></span>
+    
+</a>
+
+            </div>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/Cloud-Computing-and-Big-Data/">Cloud Computing and Big Data</a>
+              </p>
+              <p class="item-title">
+                <a href="/2026/06/08/kubernetes-lab-notes/" class="title">Kubernetes 实践：集群安装与应用部署</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2026-06-08T03:40:00.000Z" itemprop="datePublished">2026-06-08</time>
+              </p>
+            </div>
+          </li>
+          
+          <li>
+            
+            <div class="item-thumb">
+              <a href="/2026/06/08/hadoop-spark-environment-lab-notes/" class="thumb">
+    
+    
+        <span class="thumb-image thumb-none"></span>
+    
+</a>
+
+            </div>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/Cloud-Computing-and-Big-Data/">Cloud Computing and Big Data</a>
+              </p>
+              <p class="item-title">
+                <a href="/2026/06/08/hadoop-spark-environment-lab-notes/" class="title">Hadoop 与 Spark 单节点大数据环境搭建</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2026-06-08T03:30:00.000Z" itemprop="datePublished">2026-06-08</time>
+              </p>
+            </div>
+          </li>
+          
+          <li>
+            
+            <div class="item-thumb">
+              <a href="/2026/06/08/ceph-cluster-lab-notes/" class="thumb">
+    
+    
+        <span class="thumb-image thumb-none"></span>
+    
+</a>
+
+            </div>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/Cloud-Computing-and-Big-Data/">Cloud Computing and Big Data</a>
+              </p>
+              <p class="item-title">
+                <a href="/2026/06/08/ceph-cluster-lab-notes/" class="title">Ceph Cluster Installation：分布式存储集群搭建与使用</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2026-06-08T03:20:00.000Z" itemprop="datePublished">2026-06-08</time>
+              </p>
+            </div>
+          </li>
+          
+          <li>
+            
+            <div class="item-thumb">
+              <a href="/2026/06/08/openstack-lab-notes/" class="thumb">
+    
+    
+        <span class="thumb-image thumb-none"></span>
+    
+</a>
+
+            </div>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/Cloud-Computing-and-Big-Data/">Cloud Computing and Big Data</a>
+              </p>
+              <p class="item-title">
+                <a href="/2026/06/08/openstack-lab-notes/" class="title">OpenStack 实践：完整环境搭建与服务验证</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2026-06-08T03:10:00.000Z" itemprop="datePublished">2026-06-08</time>
+              </p>
+            </div>
+          </li>
+          
+      </ul>
+    </div>
+  </div>
+  
+
+    
+  </div>
+</aside>
+
+  
+  
+<main class="main" role="main">
+  <div class="content">
+  <article id="post-ceph-cluster-lab-notes" class="article article-type-post" itemscope itemtype="http://schema.org/BlogPosting">
+    
+    <div class="article-header">
+      
+        
+  
+    <h1 class="article-title" itemprop="name">
+      Ceph Cluster Installation：分布式存储集群搭建与使用
+    </h1>
+  
+
+      
+      <div class="article-meta">
+        <span class="article-date">
+    <i class="icon icon-calendar-check"></i>
+	<a href="/2026/06/08/ceph-cluster-lab-notes/" class="article-date">
+	  <time datetime="2026-06-08T03:20:00.000Z" itemprop="datePublished">2026-06-08</time>
+	</a>
+</span>
+        
+  <span class="article-category">
+    <i class="icon icon-folder"></i>
+    <a class="article-category-link" href="/categories/Cloud-Computing-and-Big-Data/">Cloud Computing and Big Data</a>
+  </span>
+
+        
+  <span class="article-tag">
+    <i class="icon icon-tags"></i>
+	<a class="article-tag-link-link" href="/tags/Ceph/" rel="tag">Ceph</a>, <a class="article-tag-link-link" href="/tags/Distributed-Storage/" rel="tag">Distributed Storage</a>, <a class="article-tag-link-link" href="/tags/RBD/" rel="tag">RBD</a>, <a class="article-tag-link-link" href="/tags/S3/" rel="tag">S3</a>
+  </span>
+
+
+        
+	<span class="article-read hidden-xs">
+	    <i class="icon icon-eye-fill" aria-hidden="true"></i>
+	    <span id="busuanzi_container_page_pv">
+			<span id="busuanzi_value_page_pv">0</span>
+		</span>
+	</span>
+
+
+        
+        <span class="post-comment"><i class="icon icon-comment"></i> <a href="/2026/06/08/ceph-cluster-lab-notes/#comments" class="article-comment-link">Comments</a></span>
+        
+        
+	
+		<span class="post-wordcount hidden-xs" itemprop="wordCount">Word Count: 4.7k(words)</span>
+	
+	
+		<span class="post-readcount hidden-xs" itemprop="timeRequired">Read Count: 22(minutes)</span>
+	
+
+      </div>
+    </div>
+    <div class="article-entry marked-body" itemprop="articleBody">
+      
+        <p>Ceph 可以同时提供块存储、文件存储和对象存储，适合作为云平台和大数据平台的底层存储。这篇记录按实际操作顺序整理，从三节点集群初始化开始，逐步完成 Dashboard、MDS、RGW、RBD、iSCSI、CephFS 和 S3 访问验证。</p>
+<h2 id="一-目标与环境准备"><a class="markdownIt-Anchor" href="#一-目标与环境准备"></a> 一、目标与环境准备</h2>
+<p>这次主要围绕 Ceph 存储的安装、配置和使用展开：</p>
+<p>• 安装 ceph</p>
+<p>• 配置 Mon，OSD，MGR，Dashboard，MDS 和 radosgw</p>
+<p>• 测试块存储</p>
+<p>• 测试文件存储</p>
+<p>• 测试对象存储</p>
+<p>• 测试 iscsi multipath 特性</p>
+<p>环境方面，在华为云上准备 3 台配置相同的弹性云服务器。每台服务器配置两块硬盘、两张网卡，并分配弹性公网 IP。</p>
+<p>规格：通用计算型 | 8vCPUs | 16GiB | sn3.2xlarge.2</p>
+<p>镜像：Ubuntu 22.04 server 64bit | 公共镜像</p>
+<p>各服务器网段：node01 | 192.168.0.10/24 | 192.168.1.10/24</p>
+<p>node02 | 192.168.0.11/24 | 192.168.1.11/24</p>
+<p>node03 | 192.168.0.12/24 | 192.168.1.12/24</p>
+<p>VPC拓扑图展示如下:</p>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-003.png" alt="操作截图 3" /></p>
+<p>后续还额外准备了 Windows 主机和 Ubuntu 主机，用来访问图形化界面，并作为客户端测试 Ceph 的块存储、文件存储和对象存储。</p>
+<h2 id="二-基础环境配置"><a class="markdownIt-Anchor" href="#二-基础环境配置"></a> 二、基础环境配置</h2>
+<h3 id="21-ssh配置"><a class="markdownIt-Anchor" href="#21-ssh配置"></a> 2.1 ssh配置</h3>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"># ssh-keygen -t rsa -P &#x27;&#x27; -f ~/.ssh/id_rsa</span><br><span class="line"># cat ~/.ssh/id_rsa.pub &gt;&gt; ~/.ssh/authorized_keys</span><br><span class="line"># chmod 0600 ~/.ssh/authorized_keys</span><br><span class="line"># vi ~/.ssh/config</span><br><span class="line">Host *</span><br><span class="line">StrictHostKeyChecking no</span><br><span class="line"># chmod 600 ~/.ssh/config</span><br><span class="line"># scp -r ~/.ssh/   ceph-02:/root/</span><br><span class="line"># scp -r ~/.ssh/   ceph-03:/root/</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-004.png" alt="操作截图 4" /></p>
+<h3 id="22-主机名解析配置"><a class="markdownIt-Anchor" href="#22-主机名解析配置"></a> 2.2 主机名解析配置</h3>
+<p>将主机名解析文件配置为图片中的内容。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># vi /etc/hosts</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-005.png" alt="操作截图 5" /></p>
+<h3 id="23-系统优化"><a class="markdownIt-Anchor" href="#23-系统优化"></a> 2.3 系统优化</h3>
+<p>对服务器做一些常规优化，使用到前面实验的内容，这里做一些总结。</p>
+<p>(1)关闭不必要的服务</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># systemctl stop cloud-config.service cloud-final.service  cloud-init-local.service cloud-init.service cloud-config.target cloud-init.target</span><br></pre></td></tr></table></figure>
+<p>(2)更新系统</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># apt update &amp;&amp; apt upgrade -y</span><br></pre></td></tr></table></figure>
+<p>(3)优化file-max nropen和ulimit</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># vi /etc/security/limits.conf</span><br><span class="line"># vi /etc/sysctl.conf</span><br><span class="line"># ulimit -Hn</span><br><span class="line"># ulimit -Sn</span><br></pre></td></tr></table></figure>
+<p>(4)重启</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># reboot</span><br></pre></td></tr></table></figure>
+<h3 id="24-安装ceph包"><a class="markdownIt-Anchor" href="#24-安装ceph包"></a> 2.4 安装Ceph包</h3>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># apt update &amp;&amp; apt install ceph -y</span><br><span class="line"># ceph -v</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-006.png" alt="操作截图 6" /></p>
+<h2 id="三-ceph集群原理"><a class="markdownIt-Anchor" href="#三-ceph集群原理"></a> 三、Ceph集群原理</h2>
+<p>Ceph是一个统一的分布式存储系统，设计初衷是提供较好的性能、可靠性和可扩展性。一个 Ceph 存储集群至少需要一个 Ceph Monitor（监视器）、Ceph Manager（管理） 和 Ceph OSD（对象存储守护进程）。下面介绍一下这几个部分帮助完成下面的实验：</p>
+<p>（1）Monitors</p>
+<p>Ceph Monitor (ceph-mon) 维护集群状态的映射，包括监视器映射、管理器映射、OSD 映射、MDS 映射和 CRUSH 映射。这些映射是Ceph守护进程相互协调所需的关键集群状态。监视器还负责管理守护进程和客户端之间的身份验证。</p>
+<p>（2）Managers</p>
+<p>Ceph Manage守护进程 ( ceph-mgr) 负责跟踪运行时指标和Ceph集群的当前状态，包括存储利用率、当前性能指标和系统负载。</p>
+<p>（3）Ceph OSD</p>
+<p>一个Ceph OSD（ceph-osd）存储数据、处理数据复制、恢复、重新平衡，并通过检查其他 Ceph OSD 守护进程的心跳来向 Ceph 监视器和管理器提供一些监视信息。</p>
+<p>（4）MDS</p>
+<p>Ceph 元数据服务器(MDS ceph-mds) 代表Ceph 文件系统存储元数据（即 Ceph 块设备和 Ceph 对象存储不使用 MDS）。</p>
+<p>下面是ceph的架构图：</p>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-007.png" alt="操作截图 7" /></p>
+<p>后续会用到块存储、文件存储和对象存储三类能力，先简单梳理它们在 Ceph 中对应的组件：</p>
+<p>（1）RADOSGW（对象网关）</p>
+<p>Ceph对象存储使用Ceph对象网关守护进程(radosgw)，它是用于与Ceph存储集群交互的HTTP服务器。由于它提供了与OpenStack Swift和Amazon S3兼容的接口，因此Ceph对象网关有自己的用户管理。</p>
+<p>（2）BRD（块存储）</p>
+<p>块是字节序列（通常为512）。Ceph块设备是精简配置的、可调整大小的，并将数据分条存储在多个OSD上。Ceph块设备利用RADOS功能，包括快照、复制和强一致性。</p>
+<p>（3）CEPHFS（文件存储）</p>
+<p>Ceph文件系统或CephFS是一个符合 POSIX 的文件系统，构建在Ceph的分布式对象存储RADOS之上。文件元数据与文件数据存储在单独的 RADOS 池中，并通过可调整大小的元数据服务器集群或MDS提供服务，该集群可以扩展以支持更高吞吐量的元数据工作负载。文件系统的客户端可以直接访问 RADOS 以读取和写入文件数据块。</p>
+<h2 id="四-集群搭建与存储功能验证"><a class="markdownIt-Anchor" href="#四-集群搭建与存储功能验证"></a> 四、集群搭建与存储功能验证</h2>
+<h3 id="41-配置-ceph-集群"><a class="markdownIt-Anchor" href="#41-配置-ceph-集群"></a> 4.1 配置 ceph 集群</h3>
+<p>(1)生成一个 uuid 作为集群的唯一标识号 fsid:</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">root@ceph-01:~# uuidgen</span><br><span class="line">7361c797-d1c2-4dc7-bbdb-f637c5ee0fab</span><br></pre></td></tr></table></figure>
+<p>(2)在集群每个节点都安装好ceph并配置好：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">root@ceph-01:~# vi /etc/ceph/ceph.conf</span><br><span class="line">[global]</span><br><span class="line">fsid = 7361c797-d1c2-4dc7-bbdb-f637c5ee0fab</span><br><span class="line">mon initial members = node01</span><br><span class="line">mon host = 192.168.1.10</span><br><span class="line">public network = 192.168.1.0/24</span><br><span class="line">cluster network = 192.168.0.0/24</span><br><span class="line">auth cluster required = cephx</span><br><span class="line">auth service required = cephx</span><br><span class="line">auth client required = cephx</span><br><span class="line">osd journal size = 1024</span><br><span class="line">osd pool default size = 3</span><br><span class="line">osd pool default min size = 2</span><br><span class="line">osd pool default pg num = 16</span><br><span class="line">osd pool default pgp num = 16</span><br><span class="line">osd crush chooseleaf type = 1</span><br><span class="line">osd_mkfs_type = xfs</span><br><span class="line">max mds = 5</span><br><span class="line">mds max file size = 100000000000000</span><br><span class="line">mds cache size = 1000000</span><br><span class="line">mon osd down out interval = 900</span><br><span class="line">[mon]</span><br><span class="line">mon clock drift allowed = .50</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-008.png" alt="操作截图 8" /></p>
+<p>（3）对令牌环进行配置</p>
+<p>创建令牌</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># ceph-authtool --create-keyring /tmp/ceph.mon.keyring --gen-key -n mon. --cap mon &#x27;allow *&#x27;</span><br></pre></td></tr></table></figure>
+<p>创建管理令牌</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># ceph-authtool --create-keyring /etc/ceph/ceph.client.admin.keyring --gen-key -n client.admin --cap mon &#x27;allow *&#x27; --cap osd &#x27;allow *&#x27; --cap mds &#x27;allow *&#x27; --cap mgr &#x27;allow *&#x27;</span><br><span class="line"># ceph-authtool --create-keyring /var/lib/ceph/bootstrap-osd/ceph.keyring --gen-key -n client.bootstrap-osd --cap mon &#x27;profile bootstrap-osd&#x27;</span><br><span class="line"># ceph-authtool /tmp/ceph.mon.keyring --import-keyring /etc/ceph/ceph.client.admin.keyring</span><br><span class="line"># ceph-authtool /tmp/ceph.mon.keyring --import-keyring /var/lib/ceph/bootstrap-osd/ceph.keyring</span><br></pre></td></tr></table></figure>
+<p>创建monmaptool</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># monmaptool --create --add node01 192.168.1.10 --fsid 7361c797-d1c2-4dc7-bbdb-f637c5ee0fab  /tmp/monmap</span><br><span class="line"># sudo -u ceph mkdir /var/lib/ceph/mon/ceph-node01</span><br><span class="line"># chown ceph.ceph /tmp/ceph.mon.keyring</span><br><span class="line"># sudo -u ceph ceph-mon --mkfs -i node01 --monmap /tmp/monmap --keyring /tmp/ceph.mon.keyring</span><br></pre></td></tr></table></figure>
+<p>创建文件夹防止重新安装</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># sudo touch /var/lib/ceph/mon/ceph-node01/done</span><br></pre></td></tr></table></figure>
+<p>启动并查看node01状态</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># systemctl start ceph-mon@node01</span><br><span class="line"># systemctl status ceph-mon@node01</span><br><span class="line"># systemctl enable ceph-mon@node01</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-009.png" alt="操作截图 9" /></p>
+<p>出现两条警告，输入下面的命令进行处理，警告消失。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># ceph config set mon mon_warn_on_insecure_global_id_reclaim_allowed false</span><br><span class="line"># ceph mon enable -msgr2</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-010.png" alt="操作截图 10" /></p>
+<p>最后将node01的配置传给node02和node03：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># scp /etc/ceph/* node02:/etc/ceph/</span><br><span class="line"># scp /etc/ceph/* node03:/etc/ceph/</span><br><span class="line"># scp /var/lib/ceph/bootstrap-osd/ceph.keyring  node02:/var/lib/ceph/bootstrap-osd/</span><br><span class="line"># scp /var/lib/ceph/bootstrap-osd/ceph.keyring  node03:/var/lib/ceph/bootstrap-osd/</span><br></pre></td></tr></table></figure>
+<p>（4）为集群添加OSD</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># sudo ceph-volume lvm create --data /dev/vdb</span><br><span class="line"># systemctl start ceph-osd@0</span><br><span class="line"># systemctl status ceph-osd@0</span><br><span class="line"># systemctl enable ceph-osd@0</span><br><span class="line"># ceph -s</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-011.png" alt="操作截图 11" /></p>
+<p>Node02和node03同理，这里不在详细写明，直接附上运行结果：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># ceph -s</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-012.png" alt="操作截图 12" /></p>
+<p>（5）发现集群健康情况中提示没有 mgr 节点，我们选择在 mon 节点上安装 mgr 节点</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"># ssh node01</span><br><span class="line"># ceph auth get-or-create mgr.node01 mon &#x27;allow profile mgr&#x27; osd &#x27;allow *&#x27; mds &#x27;allow *&#x27;</span><br><span class="line"># sudo -u ceph mkdir /var/lib/ceph/mgr/ceph-node01/</span><br><span class="line"># ceph auth get mgr.node01 -o /var/lib/ceph/mgr/ceph-node01/keyring</span><br><span class="line"># systemctl start ceph-mgr@node01</span><br><span class="line"># systemctl status ceph-mgr@node01</span><br><span class="line"># systemctl enable ceph-mgr@node01</span><br><span class="line"># ceph -s</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-013.png" alt="操作截图 13" /></p>
+<p>（6）为 ceph 集群安装 mgr-dashboard 软件</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># apt install ceph-mgr-dashboard -y</span><br><span class="line"># ceph mgr module enable dashboard</span><br><span class="line"># ceph dashboard create-self-signed-cert</span><br><span class="line"># openssl req -new -nodes -x509   -subj &quot;/O=IT/CN=ceph-mgr-dashboard&quot; -days 3650   -keyout dashboard.key -out dashboard.crt -extensions v3_ca</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-014.png" alt="操作截图 14" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"># ceph config-key set mgr/dashboard/crt -i dashboard.crt</span><br><span class="line"># ceph config-key set mgr/dashboard/key -i dashboard.key</span><br><span class="line"># ceph config set mgr mgr/dashboard/server_addr  192.168.1.10</span><br><span class="line"># ceph config set mgr mgr/dashboard/server_port  8080</span><br><span class="line"># ceph config set mgr mgr/dashboard/ssl_server_port 8443</span><br><span class="line"># ceph config dump</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-015.png" alt="操作截图 15" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># systemctl daemon-reload</span><br><span class="line"># systemctl restart ceph-mgr@node01</span><br><span class="line"># netstat -an | grep 8443</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-016.png" alt="操作截图 16" /></p>
+<p>然后配置账户和密码：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># ceph dashboard ac-role-show</span><br><span class="line"># vi adminpassword</span><br><span class="line"># ceph dashboard ac-user-create admin  -i adminpassword administrator</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-017.png" alt="操作截图 17" /></p>
+<p>配置完成之后，访问https://192.168.1.10:8443查看 dashboard，如图所示，说明配置成功。</p>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-018.png" alt="操作截图 18" /></p>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-019.png" alt="操作截图 19" /></p>
+<p>至此，集群的初始配置完成。</p>
+<h3 id="42-添加mds和radosgw服务"><a class="markdownIt-Anchor" href="#42-添加mds和radosgw服务"></a> 4.2 添加MDS和radosgw服务</h3>
+<p>创建rbd池然后初始化</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># ceph osd lspools</span><br><span class="line"># ceph osd pool create rbd 16 16</span><br><span class="line"># rbd pool init rbd</span><br></pre></td></tr></table></figure>
+<p>添加MDS服务</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"># ssh node01</span><br><span class="line"># sudo -u ceph mkdir -p /var/lib/ceph/mds/ceph-node01</span><br><span class="line"># ceph auth get-or-create mds.node01 osd &quot;allow rwx&quot; mds &quot;allow&quot; mon &quot;allow profile mds&quot;</span><br><span class="line"># ceph auth get mds.node01 -o /var/lib/ceph/mds/ceph-node01/keyring</span><br><span class="line"># vi /etc/ceph/ceph.conf</span><br><span class="line">[mds.node01]</span><br><span class="line">host = node01</span><br><span class="line"># systemctl start ceph-mds@node01</span><br><span class="line"># systemctl enable ceph-mds@node01</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-020.png" alt="操作截图 20" /></p>
+<p>安装radosgw并初始化</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"># apt install radosgw -y</span><br><span class="line"># vi /etc/ceph/ceph.conf</span><br><span class="line">[client.rgw.node01]</span><br><span class="line">host = node01</span><br><span class="line">rgw frontends = &quot;beast port=7480&quot;</span><br><span class="line">rgw dns name = node01</span><br></pre></td></tr></table></figure>
+<p>创建目录</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># sudo -u ceph mkdir -p /var/lib/ceph/radosgw/ceph-rgw.node01</span><br></pre></td></tr></table></figure>
+<p>配置令牌</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># ceph auth get-or-create client.rgw.node01 osd &#x27;allow rwx&#x27; mon &#x27;allow rw&#x27; -o /var/lib/ceph/radosgw/ceph-rgw.node01/keyring</span><br></pre></td></tr></table></figure>
+<p>创建池</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"># ceph osd pool create .rgw.root   16 16</span><br><span class="line"># ceph osd pool create default.rgw.control   16 16</span><br><span class="line"># ceph osd pool create default.rgw.meta  16 16</span><br><span class="line"># ceph osd pool create default.rgw.log  16 16</span><br><span class="line"># ceph osd pool create default.rgw.buckets.index  16 16</span><br><span class="line"># ceph osd pool create default.rgw.buckets.data  16 16</span><br><span class="line"># ceph osd pool create default.rgw.buckets.non-ec   16 16</span><br></pre></td></tr></table></figure>
+<p>初始化池</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"># ceph osd pool application enable .rgw.root rgw</span><br><span class="line"># ceph osd pool application enable default.rgw.control rgw</span><br><span class="line"># ceph osd pool application enable default.rgw.meta  rgw</span><br><span class="line"># ceph osd pool application enable default.rgw.log rgw</span><br><span class="line"># ceph osd pool application enable default.rgw.buckets.index rgw</span><br><span class="line"># ceph osd pool application enable default.rgw.buckets.data  rgw</span><br><span class="line"># ceph osd pool application enable default.rgw.buckets.non-ec  rgw</span><br></pre></td></tr></table></figure>
+<p>启动服务</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># systemctl start  ceph-radosgw@rgw.node01</span><br><span class="line"># systemctl enable  ceph-radosgw@rgw.node01</span><br><span class="line"># ceph -s</span><br></pre></td></tr></table></figure>
+<p>创建管理用户</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># radosgw-admin user create --uid=&quot;admin&quot; --display-name=&quot;admin user&quot; --system</span><br><span class="line"># radosgw-admin user list</span><br></pre></td></tr></table></figure>
+<p>添加RGW到dashboard</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># vi rgw_access_key</span><br><span class="line"># vi rgw_secret_key</span><br><span class="line"># ceph dashboard set-rgw-api-ssl-verify false</span><br><span class="line"># ceph dashboard set-rgw-api-access-key -i rgw_access_key</span><br><span class="line"># ceph dashboard set-rgw-api-secret-key -i rgw_secret_key</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-021.png" alt="操作截图 21" /></p>
+<p>安装 ceph-iscsi并配置</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"># apt install ceph-iscsi</span><br><span class="line"># vi /etc/ceph/iscsi-gateway.cfg</span><br><span class="line">[config]</span><br><span class="line">cluster_name = ceph</span><br><span class="line">gateway_keyring = ceph.client.admin.keyring</span><br><span class="line">api_secure = false</span><br><span class="line">api_user = admin</span><br><span class="line">api_password = admin</span><br><span class="line">api_port = 5001</span><br><span class="line">trusted_ip_list = 192.168.1.10</span><br></pre></td></tr></table></figure>
+<p>启动服务</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"># systemctl enable  tcmu-runner</span><br><span class="line"># systemctl enable  rbd-target-api</span><br><span class="line"># systemctl enable  rbd-target-gw</span><br><span class="line"># systemctl daemon-reload</span><br><span class="line"># systemctl restart tcmu-runner</span><br><span class="line"># systemctl restart rbd-target-api</span><br><span class="line"># systemctl restart rbd-target-gw</span><br><span class="line"># vi iscsigw-node01</span><br><span class="line">http://admin:admin@192.168.1.10:5001</span><br><span class="line"># ceph dashboard set-iscsi-api-ssl-verification false</span><br><span class="line"># ceph dashboard iscsi-gateway-add -i iscsigw-node01</span><br><span class="line"># ceph dashboard iscsi-gateway-list</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-022.png" alt="操作截图 22" /></p>
+<h3 id="43-块存储的使用包括选做部分"><a class="markdownIt-Anchor" href="#43-块存储的使用包括选做部分"></a> 4.3 块存储的使用（包括选做部分）</h3>
+<p>前面我们已经成功安装并配置了ceph-iscsi，下面我们先看一下ceph状态以及存储池情况：</p>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-023.png" alt="操作截图 23" /></p>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-024.png" alt="操作截图 24" /></p>
+<h4 id="431-创建镜像"><a class="markdownIt-Anchor" href="#431-创建镜像"></a> 4.3.1 创建镜像</h4>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">rbd 存储池并不能直接用于块设备，而是需要事先在其中按需创建映像（image），并把映像文件作为块设备使用。</span><br><span class="line"># ceph osd pool create images 16 16</span><br><span class="line"># rbd pool init images</span><br><span class="line"># rbd create --size 10G images/image1</span><br><span class="line"># rbd ls images</span><br><span class="line"># rbd info images/image1</span><br><span class="line"># rbd map images/image1</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-025.png" alt="操作截图 25" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"># rbd showmapped</span><br><span class="line"># fdisk /dev/rbd0</span><br><span class="line"># fdisk -l /dev/rbd0</span><br><span class="line"># mkfs.xfs /dev/rbd0p1</span><br><span class="line"># mount /dev/rbd0p1 /mnt</span><br><span class="line"># df -kh</span><br></pre></td></tr></table></figure>
+<p>此时对块设备/dev/rbd0就可以进行分区格式化文件系统挂载使用了。</p>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-026.png" alt="操作截图 26" /></p>
+<p>断开映射</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># rbd device unmap /dev/rbd0</span><br></pre></td></tr></table></figure>
+<p>删除镜像</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># rbd remove rbd/image1</span><br></pre></td></tr></table></figure>
+<p>这种方法删除镜像后，镜像将不可恢复。推荐使用trash命令，这个命令删除是将镜像移动一回收站，用法为：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">rbd trash move &lt;pool name&gt;/&lt;image name&gt;</span><br><span class="line">rbd trash list --pool &lt;pool name&gt;</span><br><span class="line">rbd trash restore &lt;pool name&gt;/&lt;id&gt;</span><br></pre></td></tr></table></figure>
+<p>此外我们还可以调整镜像大小：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">rbd resize &lt;pool name&gt;/&lt;image name&gt; --size &lt;size number&gt;</span><br></pre></td></tr></table></figure>
+<h4 id="432-镜像快照"><a class="markdownIt-Anchor" href="#432-镜像快照"></a> 4.3.2 镜像快照</h4>
+<p>Ceph全面支持快照，快照是在某个时间点上生成的只读RBD镜像副本。可以通过创建和恢复快照来保持镜像的状态以及从快照恢复原始数据。</p>
+<p>创建一个镜像快照</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># rbd snap create images/image1@20240412</span><br><span class="line"># rbd snap ls images/image1</span><br></pre></td></tr></table></figure>
+<p>保护和克隆快照</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># rbd snap protect images/image1@20240412</span><br><span class="line"># rbd clone images/image1@20240412 images/image2</span><br><span class="line"># rbd info images/image2</span><br></pre></td></tr></table></figure>
+<p>查看快照的子快照</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># rbd children images/image1</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-027.png" alt="操作截图 27" /></p>
+<p>扁平化克隆，然后删除它</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># rbd flatten images/image2</span><br><span class="line"># rbd snap unprotect images/image1@20240412</span><br><span class="line"># rbd snap purge images/image1</span><br><span class="line"># rbd  rm images/image1</span><br><span class="line"># rbd  rm images/image2</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-028.png" alt="操作截图 28" /></p>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-029.png" alt="操作截图 29" /></p>
+<p>以上就是镜像与快照的实际操作与应用。</p>
+<h4 id="433-在客户端配置ceph"><a class="markdownIt-Anchor" href="#433-在客户端配置ceph"></a> 4.3.3 在客户端配置ceph</h4>
+<p>客户端使用ceph块存储需要在集群创建client账户并授权。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># ceph auth get-or-create client.rbd mon &#x27;allow r&#x27; osd &#x27;allow rwx pool=rbd&#x27;</span><br></pre></td></tr></table></figure>
+<p>从集群导出为令牌环文件，将该文发送给客户端，客户端（这里新创建一个test客户端，内网ip为192.168.1.158）也安装好ceph。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># ceph auth get client.rbd -o ceph.client.rbd.keyring</span><br><span class="line"># scp ./ceph.client.rbd.keyring root@192.168.1.158:/etc/ceph/ceph.client.rbd.keyring</span><br></pre></td></tr></table></figure>
+<p>切换到test_node</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"># sudo apt install ceph-common -y</span><br><span class="line"># apt install ceph-iscsi</span><br><span class="line"># vim /etc/ceph/ceph.conf</span><br><span class="line">[global]</span><br><span class="line">fsid = 7361c797-d1c2-4dc7-bbdb-f637c5ee0fab</span><br><span class="line">mon initial members = node01,node02,node03</span><br><span class="line">mon host = 192.168.1.10, 192.168.1.11, 192.168.1.12</span><br><span class="line">auth cluster required = cephx</span><br><span class="line">auth service required = cephx</span><br><span class="line">auth client required = cephx</span><br><span class="line">[client.rbd]</span><br><span class="line">keyring = /etc/ceph/ceph.client.rbd.keyring</span><br></pre></td></tr></table></figure>
+<h4 id="434-配置-iscsi-target"><a class="markdownIt-Anchor" href="#434-配置-iscsi-target"></a> 4.3.4 配置 iSCSI Target</h4>
+<p>使用 root 用户运行gwcli开启一个命令行窗口：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"># 创 建 一 个iqn</span><br><span class="line">/&gt; cd /iscsi -targets/iscsi -targets &gt; create iqn.2024-04.com.zzq:test1</span><br><span class="line"># 创 建iSCSI网 关</span><br><span class="line">/iscsi -targets &gt; cd iqn.2024-04.com.zzq:test1/gateways</span><br><span class="line">/iscsi -target...est1/gateways &gt; create cephnode1 192.168.1.10</span><br><span class="line">/iscsi -target...est1/gateways &gt; create cephnode2 192.168.1.11</span><br><span class="line"># 添 加 镜 像</span><br><span class="line">/iscsi -target...est1/gateways &gt; cd /disks</span><br><span class="line">/disks &gt; create pool=rbd image=disk_1 size=10G</span><br><span class="line"># 为 客 户 端 创 建initiator</span><br><span class="line">/disks &gt; cd /iscsi -targets/iqn.2024-04.com.zzq:test1/hosts/</span><br><span class="line">iscsi -target...t:test1/hosts &gt; create iqn.2024-04.com.zzq:client</span><br><span class="line"># 为 客 户 端 创 建 硬 盘</span><br><span class="line">/iscsi -target...om.zzq:client &gt; disk add rbd/disk_1</span><br><span class="line"># 设 置 密 码</span><br><span class="line">/iscsi -target...om.zzq:client &gt; auth username=username@zzq password=password@zzq</span><br></pre></td></tr></table></figure>
+<p>使用 apt 安装 open-iscsi 和 multipath-tools</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"># apt install open-iscsi multipath-tools</span><br><span class="line"># vi /etc/iscsi/initiatorname.iscsi</span><br><span class="line">InitiatorName=iqn.2024-04.com.zzq:client</span><br><span class="line"># vi /etc/iscsi/iscsid.conf</span><br><span class="line">node.session.auth.authmethod = CHAP</span><br><span class="line">node.session.auth.username = username@zzq</span><br><span class="line">node.session.auth.password = password@zzq</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-030.png" alt="操作截图 30" /></p>
+<p>重启服务加载新的配置</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">systemctl restart iscsid open-iscsi</span><br></pre></td></tr></table></figure>
+<p>配置 MultiPath：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">vi /etc/multipath.conf</span><br><span class="line">defaults &#123;</span><br><span class="line">user_friendly_names yes</span><br><span class="line">find_multipaths yes</span><br><span class="line">&#125;</span><br><span class="line">devices &#123;</span><br><span class="line">device &#123;</span><br><span class="line">vendor                 &quot;LIO-ORG&quot;</span><br><span class="line">product                &quot;TCMU device&quot;</span><br><span class="line">hardware_handler       &quot;1 alua&quot;</span><br><span class="line">path_grouping_policy   &quot;failover&quot;</span><br><span class="line">path_selector          &quot;queue -length 0&quot;</span><br><span class="line">failback                60</span><br><span class="line">path_checker            tur</span><br><span class="line">prio                    alua</span><br><span class="line">prio_args               exclusive_pref_bit</span><br><span class="line">8fast_io_fail_tmo       25</span><br><span class="line">no_path_retry           queue</span><br><span class="line">&#125;</span><br><span class="line">&#125;</span><br><span class="line"># 修改完成后重启服务加载新的配置文件</span><br><span class="line">systemctl restart multipathd</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-031.png" alt="操作截图 31" /></p>
+<h4 id="435-测试块存储"><a class="markdownIt-Anchor" href="#435-测试块存储"></a> 4.3.5 测试块存储</h4>
+<p>配置完成之后，可以直接使用客户端连接 ceph 提供的块存储服务。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># iscsiadm -m discovery -t st -p 192.168.1.10</span><br></pre></td></tr></table></figure>
+<p>登 录</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># iscsiadm -m node --login</span><br><span class="line"># multipath -ll</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-032.png" alt="操作截图 32" /></p>
+<p>挂载情况和multipath 情况正常，块存储测试成功。</p>
+<h3 id="44-文件存储的使用"><a class="markdownIt-Anchor" href="#44-文件存储的使用"></a> 4.4 文件存储的使用</h3>
+<p>前面我们已经在服务器端成功添加了MDS服务（3.2节中），下面为文件存储创建其所需的存储池。一个存储data数据，一个存储meta数据。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># ceph osd pool create cephfs_data  16  16</span><br><span class="line"># ceph osd pool create cephfs_metadata  16  16</span><br><span class="line"># ceph osd pool application enable cephfs_data  cephfs</span><br><span class="line"># ceph osd pool application enable cephfs_metadata  cephfs</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-033.png" alt="操作截图 33" /></p>
+<p>创建文件系统</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># ceph fs new cephfs cephfs_metadata cephfs_data</span><br><span class="line"># ceph osd pool set cephfs_data bulk true</span><br><span class="line"># ceph fs ls</span><br><span class="line"># ceph -s</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-034.png" alt="操作截图 34" /></p>
+<p>挂载cephfs</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># mkdir /mnt/cephfs</span><br><span class="line"># mount -t ceph 192.168.1.158:6789:/ /mnt/cephfs -o name=admin,fs=cephfs</span><br></pre></td></tr></table></figure>
+<p>查看情况</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">ceph fs ls</span><br><span class="line">ceph fs status cephfs</span><br><span class="line">ceph mds stat</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-035.png" alt="操作截图 35" /></p>
+<p>创建cephfs用户，并允许这个用户访问cephfs池：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># ceph fs authorize cephfs client.cephfs / rw</span><br></pre></td></tr></table></figure>
+<p>导出client.cephfs令牌环，客户端使用该凭证访问cephfs文件共享系统</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># ceph auth get-or-create client.cephfs -o /etc/ceph/client.cephfs.keyring</span><br></pre></td></tr></table></figure>
+<p>文件系统测试完成。</p>
+<h3 id="45-对象存储"><a class="markdownIt-Anchor" href="#45-对象存储"></a> 4.5 对象存储</h3>
+<h4 id="451-gui图形工具的使用"><a class="markdownIt-Anchor" href="#451-gui图形工具的使用"></a> 4.5.1 GUI图形工具的使用</h4>
+<p>前面我们已经在ceph中创建了管理用户并且把RGW添加到dashboard中（3.2节），下面我们在ceph的GUI界面中创建另一个用户zzqtest，后期会使用“CloudBerry Explorer for Amazon S3”软件访问该用户。</p>
+<p>首先登陆ceph管理页面，在users中创建一个zzqtest用户：</p>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-036.png" alt="操作截图 36" /></p>
+<p>创建成功：</p>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-037.png" alt="操作截图 37" /></p>
+<p>使用“CloudBerry Explorer for Amazon S3”软件访问该用户，这台主机与云服务器主机在同一子网，因此输入https://192.168.1.10:7480即可访问，两个秘钥是之前创建用户时给出的秘钥，这里直接复制粘贴过来即可。成功连接：</p>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-038.png" alt="操作截图 38" /></p>
+<p>然后我在主机内新建了一个txt文件并在zzqtest下创建一个桶zzqbucket，用来测试对象存储，下面我将该txt文件传至ceph中，操作成功：</p>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-039.png" alt="操作截图 39" /></p>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-040.png" alt="操作截图 40" /></p>
+<h4 id="452-s3cmd命令行操作"><a class="markdownIt-Anchor" href="#452-s3cmd命令行操作"></a> 4.5.2 s3cmd命令行操作</h4>
+<p>首先我们先安装s3cmd，然后进行配置：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"># apt update &amp;&amp; apt install s3cmd</span><br><span class="line"># vi ~/.s3cfg</span><br><span class="line">[default]</span><br><span class="line">access_key = MJ7U5U1WVJHNOG1AAY8K</span><br><span class="line">secret_key = 0gAjF6s8RFnr1plYEkf0lJC2TBvDuRbsECfHMmL4</span><br><span class="line">host_base = 192.168.1.10:7480</span><br><span class="line">host_bucket = 192.168.1.10:7480/%(bucket)</span><br><span class="line">cloudfront_host = 192.168.1.10:7480</span><br><span class="line">use_https = False</span><br></pre></td></tr></table></figure>
+<p>下面我在云服务器中进行s3cmd命令练习，以下是操作内容：</p>
+<p>（1）列举所有buckets：s3cmd ls</p>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-041.png" alt="操作截图 41" /></p>
+<p>（2）查看某个bucket中的内容：s3cmd ls s3://bucketname</p>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-042.png" alt="操作截图 42" /></p>
+<p>（3）查看bucket包括内容: s3cmd la</p>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-043.png" alt="操作截图 43" /></p>
+<p>（4）创建一个新的bucket：s3cmd mb s3://newbucket</p>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-044.png" alt="操作截图 44" /></p>
+<p>（5）删除空bucket：s3cmd rb s3://newbucket</p>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-045.png" alt="操作截图 45" /></p>
+<p>（6）上传一个txt文件到bucket:</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">s3cmd put zzqnew.txt s3://zzqbucket</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-046.png" alt="操作截图 46" /></p>
+<p>（7）从bucket下载文件：s3cmd get s3://zzqbucket/对象存储测试.txt</p>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-047.png" alt="操作截图 47" /></p>
+<p>（8）删除bucket中的文件：s3cmd rm s3://zzqbucket/对象存储测试.txt</p>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-048.png" alt="操作截图 48" /></p>
+<p>（9）查看bucket已使用空间：s3cmd du -H s3://zzqbucket</p>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-049.png" alt="操作截图 49" /></p>
+<p>（10）获取bucket的信息：s3cmd info s3://zzqbucket</p>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-050.png" alt="操作截图 50" /></p>
+<p>（11）移动bucket中文件：s3cmd mv s3://zzqbucket/zzqnew.txt s3://zzqbucket2/zzqnew2.txt</p>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-051.png" alt="操作截图 51" /></p>
+<p>（12）本地目录下文件同步bucket：s3cmd sync s3://zzqbucket</p>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-052.png" alt="操作截图 52" /></p>
+<p>（13）对比指定目录下文件和bucket中文件并删除桶中差异文件（因为前面刚进行了同步，此时没有差异文件）：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">s3cmd sync --delete-removed ./ s3://zzqbucket</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-053.png" alt="操作截图 53" /></p>
+<p>（14）帮助命令：s3cmd --help</p>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-054.png" alt="操作截图 54" /></p>
+<h4 id="453-python编程"><a class="markdownIt-Anchor" href="#453-python编程"></a> 4.5.3 Python编程</h4>
+<p>在使用Python访问对象存储时，我使用了前面使用的Window客户端，这台主机同样和集群处于一个内网，因此可以直接通过内网访问，并且在编程时更加方便，下面我编写了一个test.py文件，在vscode中进行运行。</p>
+<p>我已经安装了Python3.12以及boto3，经过测试我发现有些语法需要按照boto3官方文档中的要求进行修改，这里附上文档链接：<a target="_blank" rel="noopener" href="https://boto3.amazonaws.com/v1/documentation/api/latest/guide/quickstart.html%E3%80%82">https://boto3.amazonaws.com/v1/documentation/api/latest/guide/quickstart.html。</a></p>
+<p>程序内容和运行结果如下：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">import boto3</span><br><span class="line">import boto3.session</span><br><span class="line">import botocore.config</span><br><span class="line">s3 = boto3.resource(&#x27;s3&#x27;)</span><br><span class="line">s3_client = boto3.session.Session(</span><br><span class="line">aws_access_key_id = &#x27;MJ7U5U1WVJHNOG1AAY8K&#x27;,</span><br><span class="line">aws_secret_access_key = &#x27;0gAjF6s8RFnr1plYEkf0lJC2TBvDuRbsECfHMmL4&#x27;)</span><br><span class="line">s3client = s3_client.client(service_name=&quot;s3&quot;,endpoint_url=&quot;http://192.168.1.10:7480&quot;)</span><br><span class="line">print(&quot;列出所有的桶：&quot;)</span><br><span class="line">response = s3client.list_buckets()</span><br><span class="line">buckets = [bucket[&#x27;Name&#x27;] for bucket in response[&#x27;Buckets&#x27;]]</span><br><span class="line">print(buckets)</span><br><span class="line">print(&quot;创建一个桶&quot;)</span><br><span class="line">m = s3client.create_bucket(Bucket=&#x27;my-new-bucket&#x27;)</span><br><span class="line">print(&quot;列出所有的桶：&quot;)</span><br><span class="line">response = s3client.list_buckets()</span><br><span class="line">buckets = [bucket[&#x27;Name&#x27;] for bucket in response[&#x27;Buckets&#x27;]]</span><br><span class="line">print(buckets)</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/ceph-cluster-lab-notes/image-055.png" alt="操作截图 55" /></p>
+<p>到这里，Ceph 对象存储的图形界面访问、s3cmd 命令行操作和 Python 编程访问都已经完成。</p>
+<h2 id="五-一些记录"><a class="markdownIt-Anchor" href="#五-一些记录"></a> 五、一些记录</h2>
+<p>这次 Ceph 搭建覆盖了块存储、对象存储和文件存储三类接口。RBD 更适合云主机卷这类块设备场景，RGW 提供兼容 S3 的对象接口，CephFS 则提供共享文件系统能力。</p>
+<p>从部署过程看，Ceph 的关键是网络、keyring、pool、daemon 名称和应用类型保持一致。Dashboard 对观察集群状态很有帮助，尤其是在排查 OSD、MDS、RGW 和 iSCSI 相关问题时。</p>
+<p>这份记录可以作为后续重新搭建 Ceph 集群时的操作手册。</p>
+<h2 id="附录"><a class="markdownIt-Anchor" href="#附录"></a> 附录</h2>
+<p>搭建过程中参考过的资料：</p>
+<p>[1] <a target="_blank" rel="noopener" href="https://www.server-world.info/en/note?os=CentOS_Stream_9&amp;p=ceph18&amp;f=1">https://www.server-world.info/en/note?os=CentOS_Stream_9&amp;p=ceph18&amp;f=1</a></p>
+<p>[2] <a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/671096663">https://zhuanlan.zhihu.com/p/671096663</a></p>
+<p>[3] <a target="_blank" rel="noopener" href="https://docs.ceph.com/en/reef/">https://docs.ceph.com/en/reef/</a></p>
+
+      
+    </div>
+    <div class="article-footer">
+      
+<blockquote class="mt-2x">
+  <ul class="post-copyright list-unstyled">
+    
+    <li class="post-copyright-link hidden-xs">
+      <strong>本文链接：</strong>
+      <a href="https://zhouzhq2021.github.io/2026/06/08/ceph-cluster-lab-notes/" title="Ceph Cluster Installation：分布式存储集群搭建与使用" target="_blank" rel="external">https://zhouzhq2021.github.io/2026/06/08/ceph-cluster-lab-notes/</a>
+    </li>
+    
+    <li class="post-copyright-license">
+      <strong>版权声明： </strong> 本博客所有文章除特别声明外，均采用 <a href="http://creativecommons.org/licenses/by/4.0/deed.zh" target="_blank" rel="external">CC BY 4.0 CN协议</a> 许可协议。转载请注明出处！
+    </li>
+  </ul>
+</blockquote>
+
+
+    </div>
+  </article>
+  
+    
+  <section id="comments">
+  	
+           
+    
+  </section>
+
+
+  
+</div>
+
+  <nav class="bar bar-footer clearfix" data-stick-bottom>
+  <div class="bar-inner">
+  
+  <ul class="pager pull-left">
+    
+    <li class="prev">
+      <a href="/2026/06/08/hadoop-spark-environment-lab-notes/" title="Hadoop 与 Spark 单节点大数据环境搭建"><i class="icon icon-angle-left" aria-hidden="true"></i><span>&nbsp;&nbsp;Newer</span></a>
+    </li>
+    
+    
+    <li class="next">
+      <a href="/2026/06/08/openstack-lab-notes/" title="OpenStack 实践：完整环境搭建与服务验证"><span>Older&nbsp;&nbsp;</span><i class="icon icon-angle-right" aria-hidden="true"></i></a>
+    </li>
+    
+    
+  </ul>
+  
+  
+  
+  <div class="bar-right">
+    
+  </div>
+  </div>
+</nav>
+  
+
+
+
+</main>
+
+  <footer class="footer" itemscope itemtype="http://schema.org/WPFooter">
+	
+	
+    <ul class="social-links">
+    	
+        <li><a href="https://github.com/zhouzhq2021" target="_blank" title="Github" data-toggle=tooltip data-placement=top><i class="icon icon-github"></i></a></li>
+        
+        <li><a href="mailto:zhouzhq2021@sjtu.edu.cn" target="_blank" title="Email" data-toggle=tooltip data-placement=top><i class="icon icon-email"></i></a></li>
+        
+        <li><a href="/atom.xml" target="_blank" title="Rss" data-toggle=tooltip data-placement=top><i class="icon icon-rss"></i></a></li>
+        
+    </ul>
+
+    <div class="copyright">
+    	
+        &copy; 2026 Zhongquan Zhou
+        
+        <div class="publishby">
+        	Theme by <a href="https://github.com/cofess" target="_blank"> cofess </a>base on <a href="https://github.com/cofess/hexo-theme-pure" target="_blank">pure</a>.
+        </div>
+    </div>
+</footer>
+  <script src="//cdn.jsdelivr.net/npm/jquery@1.12.4/dist/jquery.min.js"></script>
+<script>
+window.jQuery || document.write('<script src="js/jquery.min.js"><\/script>')
+</script>
+
+<script src="/js/plugin.min.js"></script>
+
+
+<script src="/js/application.js"></script>
+
+
+    <script>
+(function (window) {
+    var INSIGHT_CONFIG = {
+        TRANSLATION: {
+            POSTS: 'Posts',
+            PAGES: 'Pages',
+            CATEGORIES: 'Categories',
+            TAGS: 'Tags',
+            UNTITLED: '(Untitled)',
+        },
+        ROOT_URL: '/',
+        CONTENT_URL: '/content.json',
+    };
+    window.INSIGHT_CONFIG = INSIGHT_CONFIG;
+})(window);
+</script>
+
+<script src="/js/insight.js"></script>
+
+
+
+
+
+
+   
+<script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+   
+    
+  <!-- <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css"> -->
+  <script src="//cdn.jsdelivr.net/npm/gitalk@1.6.2/dist/gitalk.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/blueimp-md5@2.10.0/js/md5.min.js"></script>
+  <script type="text/javascript">
+  var gitalk = new Gitalk({
+    clientID: 'Ov23ligxx5efd5yRAiAq',
+    clientSecret: '3114825a44fe2c1af88fabb6c926e5a3e0256f27',
+    repo: 'zhouzhq2021.github.io',
+    owner: 'zhouzhq2021',
+    admin: ['zhouzhq2021'],
+    id: md5(location.pathname),
+    distractionFreeMode: true,
+    language: 'en',
+    enableHotKey: 'true'
+  })
+  gitalk.render('comments')
+  </script>
+      
+
+
+
+  <script src="//cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.3.5/dist/jquery.fancybox.min.js"></script>
+  <script>
+  //利用 FancyBox 实现点击图片放大
+  $(document).ready(function() {
+    $('article img').not('[hidden]').not('.panel-body img').each(function() {
+      var $image = $(this);
+      var imageCaption = $image.attr('alt');
+      var $imageWrapLink = $image.parent('a');
+      if ($imageWrapLink.length < 1) {
+        var src = this.getAttribute('src');
+        var idx = src.lastIndexOf('?');
+        if (idx != -1) {
+          src = src.substring(0, idx);
+        }
+        $imageWrapLink = $image.wrap('<a href="' + src + '"></a>').parent('a');
+      }
+      $imageWrapLink.attr('data-fancybox', 'images');
+      if (imageCaption) {
+        $imageWrapLink.attr('data-caption', imageCaption);
+      }
+    });
+    $().fancybox({
+      selector: '[data-fancybox="images"]',
+      hash: false,
+      loop: false,
+    });
+  });
+  </script>
+
+
+
+
+
+</body>
+</html>

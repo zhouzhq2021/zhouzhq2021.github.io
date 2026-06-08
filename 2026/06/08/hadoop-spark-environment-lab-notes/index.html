@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang=en>
+<head>
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, minimal-ui">
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="Cache-Control" content="no-transform" />
+  <meta http-equiv="Cache-Control" content="no-siteapp" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="format-detection" content="telephone=no,email=no,adress=no">
+  <!-- Color theme for statusbar -->
+  <meta name="theme-color" content="#000000" />
+  <!-- 强制页面在当前窗口以独立页面显示,防止别人在框架里调用页面 -->
+  <meta http-equiv="window-target" content="_top" />
+  
+  
+  <title>Hadoop 与 Spark 单节点大数据环境搭建 | Zhongquan Zhou&#39;s Blog</title>
+  <meta name="description" content="这篇记录整理单节点 Hadoop 与 Spark 环境的搭建过程。整体目标是在一台云服务器上完成 JDK、Hadoop、HDFS、YARN、MapReduce、Spark、spark-submit 和 PySpark&#x2F;Jupyter 的基本验证。  一、前期准备 这次使用华为云服务器完成搭建，配置为 8 核 16G 内存。整个过程中只有一个节点 node01，因此以单节点伪分布式方式运行 Hado">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Hadoop 与 Spark 单节点大数据环境搭建">
+<meta property="og:url" content="https://zhouzhq2021.github.io/2026/06/08/hadoop-spark-environment-lab-notes/index.html">
+<meta property="og:site_name" content="Zhongquan Zhou&#39;s Blog">
+<meta property="og:description" content="这篇记录整理单节点 Hadoop 与 Spark 环境的搭建过程。整体目标是在一台云服务器上完成 JDK、Hadoop、HDFS、YARN、MapReduce、Spark、spark-submit 和 PySpark&#x2F;Jupyter 的基本验证。  一、前期准备 这次使用华为云服务器完成搭建，配置为 8 核 16G 内存。整个过程中只有一个节点 node01，因此以单节点伪分布式方式运行 Hado">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/hadoop-spark-environment-lab-notes/image-003.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/hadoop-spark-environment-lab-notes/image-004.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/hadoop-spark-environment-lab-notes/image-005.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/hadoop-spark-environment-lab-notes/image-006.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/hadoop-spark-environment-lab-notes/image-007.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/hadoop-spark-environment-lab-notes/image-008.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/hadoop-spark-environment-lab-notes/image-009.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/hadoop-spark-environment-lab-notes/image-010.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/hadoop-spark-environment-lab-notes/image-011.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/hadoop-spark-environment-lab-notes/image-012.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/hadoop-spark-environment-lab-notes/image-013.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/hadoop-spark-environment-lab-notes/image-014.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/hadoop-spark-environment-lab-notes/image-015.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/hadoop-spark-environment-lab-notes/image-016.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/hadoop-spark-environment-lab-notes/image-017.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/hadoop-spark-environment-lab-notes/image-018.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/hadoop-spark-environment-lab-notes/image-019.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/hadoop-spark-environment-lab-notes/image-020.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/hadoop-spark-environment-lab-notes/image-021.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/hadoop-spark-environment-lab-notes/image-022.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/hadoop-spark-environment-lab-notes/image-023.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/hadoop-spark-environment-lab-notes/image-024.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/hadoop-spark-environment-lab-notes/image-025.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/hadoop-spark-environment-lab-notes/image-026.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/hadoop-spark-environment-lab-notes/image-027.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/hadoop-spark-environment-lab-notes/image-028.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/hadoop-spark-environment-lab-notes/image-029.png">
+<meta property="article:published_time" content="2026-06-08T03:30:00.000Z">
+<meta property="article:modified_time" content="2026-06-08T04:41:53.514Z">
+<meta property="article:author" content="Zhongquan Zhou">
+<meta property="article:tag" content="Hadoop">
+<meta property="article:tag" content="Spark">
+<meta property="article:tag" content="HDFS">
+<meta property="article:tag" content="YARN">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://zhouzhq2021.github.io/images/posts/hadoop-spark-environment-lab-notes/image-003.png">
+  <!-- Canonical links -->
+  <link rel="canonical" href="https://zhouzhq2021.github.io/2026/06/08/hadoop-spark-environment-lab-notes/index.html">
+  
+    <link rel="alternate" href="/atom.xml" title="Zhongquan Zhou&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+  
+  
+    <link href="//cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.3.5/dist/jquery.fancybox.min.css" rel="stylesheet">
+  
+  
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1.4.0/dist/gitalk.min.css">
+  
+  <link rel="stylesheet" type="text/css" href="/css/custom.css">
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body class="main-center" itemscope itemtype="http://schema.org/WebPage">
+  <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+  <div class="slimContent">
+    <div class="navbar-header">
+      
+      
+      <div class="profile-block text-center">
+        <a id="avatar" href="https://github.com/zhouzhq2021" target="_blank">
+          <img class="img-circle img-rotate" src="/images/avatar-20260605.jpg" width="200" height="200">
+        </a>
+        <h2 id="name" class="hidden-xs hidden-sm">Zhongquan Zhou</h2>
+        <h3 id="title" class="hidden-xs hidden-sm hidden-md">Computer Science Graduate Student @ Shanghai Jiao Tong University</h3>
+        <small id="location" class="text-muted hidden-xs hidden-sm"><i class="icon icon-map-marker"></i> Shanghai, China</small>
+      </div>
+      
+      <div class="search" id="search-form-wrap">
+
+    <form class="search-form sidebar-form">
+        <div class="input-group">
+            <input type="text" class="search-form-input form-control" placeholder="Search" />
+            <span class="input-group-btn">
+                <button type="submit" class="search-form-submit btn btn-flat" onclick="return false;"><i class="icon icon-search"></i></button>
+            </span>
+        </div>
+    </form>
+    <div class="ins-search">
+  <div class="ins-search-mask"></div>
+  <div class="ins-search-container">
+    <div class="ins-input-wrapper">
+      <input type="text" class="ins-search-input" placeholder="Type something..." x-webkit-speech />
+      <button type="button" class="close ins-close ins-selectable" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">×</span></button>
+    </div>
+    <div class="ins-section-wrapper">
+      <div class="ins-section-container"></div>
+    </div>
+  </div>
+</div>
+
+
+</div>
+      <button class="navbar-toggle collapsed" type="button" data-toggle="collapse" data-target="#main-navbar" aria-controls="main-navbar" aria-expanded="false">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+    </div>
+    <nav id="main-navbar" class="collapse navbar-collapse" itemscope itemtype="http://schema.org/SiteNavigationElement" role="navigation">
+      <ul class="nav navbar-nav main-nav menu-highlight">
+        
+        
+        <li class="menu-item menu-item-home">
+          <a href="/.">
+            
+            <i class="icon icon-home-fill"></i>
+            
+            <span class="menu-title">Home</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories">
+            
+            <i class="icon icon-folder"></i>
+            
+            <span class="menu-title">Categories</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags">
+            
+            <i class="icon icon-tags"></i>
+            
+            <span class="menu-title">Tags</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-repository">
+          <a href="/repository">
+            
+            <i class="icon icon-project"></i>
+            
+            <span class="menu-title">Repository</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-books">
+          <a href="/books">
+            
+            <i class="icon icon-book-fill"></i>
+            
+            <span class="menu-title">Books</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-links">
+          <a href="/links">
+            
+            <i class="icon icon-friendship"></i>
+            
+            <span class="menu-title">Links</span>
+          </a>
+        </li>
+        
+      </ul>
+      
+	
+    <ul class="social-links">
+    	
+        <li><a href="https://github.com/zhouzhq2021" target="_blank" title="Github" data-toggle=tooltip data-placement=top><i class="icon icon-github"></i></a></li>
+        
+        <li><a href="mailto:zhouzhq2021@sjtu.edu.cn" target="_blank" title="Email" data-toggle=tooltip data-placement=top><i class="icon icon-email"></i></a></li>
+        
+        <li><a href="/atom.xml" target="_blank" title="Rss" data-toggle=tooltip data-placement=top><i class="icon icon-rss"></i></a></li>
+        
+    </ul>
+
+    </nav>
+  </div>
+</header>
+
+  
+    <aside class="sidebar" itemscope itemtype="http://schema.org/WPSideBar">
+  <div class="slimContent">
+    
+      <div class="widget">
+    <h3 class="widget-title">Board</h3>
+    <div class="widget-body">
+        <div id="board">
+            <div class="content">
+                <p>Welcome to my personal blog! Feel free to explore and share your thoughts!</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Contact</h3>
+    <div class="widget-body">
+      <ul class="sidebar-simple-list">
+        
+          
+          <li>
+            <span class="sidebar-contact-label">Email</span>
+            
+              <a href="mailto:zhouzhq2021@sjtu.edu.cn">zhouzhq2021@sjtu.edu.cn</a>
+            
+          </li>
+        
+          
+          <li>
+            <span class="sidebar-contact-label">GitHub</span>
+            
+              <a href="https://github.com/zhouzhq2021" target="_blank">github.com/zhouzhq2021</a>
+            
+          </li>
+        
+          
+          <li>
+            <span class="sidebar-contact-label">Location</span>
+            
+              <span>Shanghai, China</span>
+            
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Categories</h3>
+    <div class="widget-body">
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/Cloud-Computing-and-Big-Data/">Cloud Computing and Big Data</a><span class="category-list-count">4</span></li></ul>
+    </div>
+  </div>
+
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Tags</h3>
+    <div class="widget-body">
+      <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/Ceph/" rel="tag">Ceph</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Cloud-Computing/" rel="tag">Cloud Computing</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Distributed-Storage/" rel="tag">Distributed Storage</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Docker/" rel="tag">Docker</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/HDFS/" rel="tag">HDFS</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Hadoop/" rel="tag">Hadoop</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Helm/" rel="tag">Helm</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Kubernetes/" rel="tag">Kubernetes</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/NFS/" rel="tag">NFS</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/OpenStack/" rel="tag">OpenStack</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/RBD/" rel="tag">RBD</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Rancher/" rel="tag">Rancher</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/S3/" rel="tag">S3</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Spark/" rel="tag">Spark</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Virtualization/" rel="tag">Virtualization</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/YARN/" rel="tag">YARN</a><span class="tag-list-count">1</span></li></ul>
+    </div>
+  </div>
+
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Tag Cloud</h3>
+    <div class="widget-body tagcloud">
+      <a href="/tags/Ceph/" style="font-size: 13px;">Ceph</a> <a href="/tags/Cloud-Computing/" style="font-size: 13px;">Cloud Computing</a> <a href="/tags/Distributed-Storage/" style="font-size: 13px;">Distributed Storage</a> <a href="/tags/Docker/" style="font-size: 13px;">Docker</a> <a href="/tags/HDFS/" style="font-size: 13px;">HDFS</a> <a href="/tags/Hadoop/" style="font-size: 13px;">Hadoop</a> <a href="/tags/Helm/" style="font-size: 13px;">Helm</a> <a href="/tags/Kubernetes/" style="font-size: 13px;">Kubernetes</a> <a href="/tags/NFS/" style="font-size: 13px;">NFS</a> <a href="/tags/OpenStack/" style="font-size: 13px;">OpenStack</a> <a href="/tags/RBD/" style="font-size: 13px;">RBD</a> <a href="/tags/Rancher/" style="font-size: 13px;">Rancher</a> <a href="/tags/S3/" style="font-size: 13px;">S3</a> <a href="/tags/Spark/" style="font-size: 13px;">Spark</a> <a href="/tags/Virtualization/" style="font-size: 13px;">Virtualization</a> <a href="/tags/YARN/" style="font-size: 13px;">YARN</a>
+    </div>
+  </div>
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Archive</h3>
+    <div class="widget-body">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2026/06/">June 2026</a><span class="archive-list-count">4</span></li></ul>
+    </div>
+  </div>
+
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget-body">
+      <ul class="recent-post-list list-unstyled ">
+        
+          <li>
+            
+            <div class="item-thumb">
+              <a href="/2026/06/08/kubernetes-lab-notes/" class="thumb">
+    
+    
+        <span class="thumb-image thumb-none"></span>
+    
+</a>
+
+            </div>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/Cloud-Computing-and-Big-Data/">Cloud Computing and Big Data</a>
+              </p>
+              <p class="item-title">
+                <a href="/2026/06/08/kubernetes-lab-notes/" class="title">Kubernetes 实践：集群安装与应用部署</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2026-06-08T03:40:00.000Z" itemprop="datePublished">2026-06-08</time>
+              </p>
+            </div>
+          </li>
+          
+          <li>
+            
+            <div class="item-thumb">
+              <a href="/2026/06/08/hadoop-spark-environment-lab-notes/" class="thumb">
+    
+    
+        <span class="thumb-image thumb-none"></span>
+    
+</a>
+
+            </div>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/Cloud-Computing-and-Big-Data/">Cloud Computing and Big Data</a>
+              </p>
+              <p class="item-title">
+                <a href="/2026/06/08/hadoop-spark-environment-lab-notes/" class="title">Hadoop 与 Spark 单节点大数据环境搭建</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2026-06-08T03:30:00.000Z" itemprop="datePublished">2026-06-08</time>
+              </p>
+            </div>
+          </li>
+          
+          <li>
+            
+            <div class="item-thumb">
+              <a href="/2026/06/08/ceph-cluster-lab-notes/" class="thumb">
+    
+    
+        <span class="thumb-image thumb-none"></span>
+    
+</a>
+
+            </div>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/Cloud-Computing-and-Big-Data/">Cloud Computing and Big Data</a>
+              </p>
+              <p class="item-title">
+                <a href="/2026/06/08/ceph-cluster-lab-notes/" class="title">Ceph Cluster Installation：分布式存储集群搭建与使用</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2026-06-08T03:20:00.000Z" itemprop="datePublished">2026-06-08</time>
+              </p>
+            </div>
+          </li>
+          
+          <li>
+            
+            <div class="item-thumb">
+              <a href="/2026/06/08/openstack-lab-notes/" class="thumb">
+    
+    
+        <span class="thumb-image thumb-none"></span>
+    
+</a>
+
+            </div>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/Cloud-Computing-and-Big-Data/">Cloud Computing and Big Data</a>
+              </p>
+              <p class="item-title">
+                <a href="/2026/06/08/openstack-lab-notes/" class="title">OpenStack 实践：完整环境搭建与服务验证</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2026-06-08T03:10:00.000Z" itemprop="datePublished">2026-06-08</time>
+              </p>
+            </div>
+          </li>
+          
+      </ul>
+    </div>
+  </div>
+  
+
+    
+  </div>
+</aside>
+
+  
+  
+<main class="main" role="main">
+  <div class="content">
+  <article id="post-hadoop-spark-environment-lab-notes" class="article article-type-post" itemscope itemtype="http://schema.org/BlogPosting">
+    
+    <div class="article-header">
+      
+        
+  
+    <h1 class="article-title" itemprop="name">
+      Hadoop 与 Spark 单节点大数据环境搭建
+    </h1>
+  
+
+      
+      <div class="article-meta">
+        <span class="article-date">
+    <i class="icon icon-calendar-check"></i>
+	<a href="/2026/06/08/hadoop-spark-environment-lab-notes/" class="article-date">
+	  <time datetime="2026-06-08T03:30:00.000Z" itemprop="datePublished">2026-06-08</time>
+	</a>
+</span>
+        
+  <span class="article-category">
+    <i class="icon icon-folder"></i>
+    <a class="article-category-link" href="/categories/Cloud-Computing-and-Big-Data/">Cloud Computing and Big Data</a>
+  </span>
+
+        
+  <span class="article-tag">
+    <i class="icon icon-tags"></i>
+	<a class="article-tag-link-link" href="/tags/HDFS/" rel="tag">HDFS</a>, <a class="article-tag-link-link" href="/tags/Hadoop/" rel="tag">Hadoop</a>, <a class="article-tag-link-link" href="/tags/Spark/" rel="tag">Spark</a>, <a class="article-tag-link-link" href="/tags/YARN/" rel="tag">YARN</a>
+  </span>
+
+
+        
+	<span class="article-read hidden-xs">
+	    <i class="icon icon-eye-fill" aria-hidden="true"></i>
+	    <span id="busuanzi_container_page_pv">
+			<span id="busuanzi_value_page_pv">0</span>
+		</span>
+	</span>
+
+
+        
+        <span class="post-comment"><i class="icon icon-comment"></i> <a href="/2026/06/08/hadoop-spark-environment-lab-notes/#comments" class="article-comment-link">Comments</a></span>
+        
+        
+	
+		<span class="post-wordcount hidden-xs" itemprop="wordCount">Word Count: 2.9k(words)</span>
+	
+	
+		<span class="post-readcount hidden-xs" itemprop="timeRequired">Read Count: 15(minutes)</span>
+	
+
+      </div>
+    </div>
+    <div class="article-entry marked-body" itemprop="articleBody">
+      
+        <p>这篇记录整理单节点 Hadoop 与 Spark 环境的搭建过程。整体目标是在一台云服务器上完成 JDK、Hadoop、HDFS、YARN、MapReduce、Spark、spark-submit 和 PySpark/Jupyter 的基本验证。</p>
+<h2 id="一-前期准备"><a class="markdownIt-Anchor" href="#一-前期准备"></a> 一、前期准备</h2>
+<p>这次使用华为云服务器完成搭建，配置为 8 核 16G 内存。整个过程中只有一个节点 <code>node01</code>，因此以单节点伪分布式方式运行 Hadoop 和 Spark，服务器的详细配置如下：</p>
+<p><img src="/images/posts/hadoop-spark-environment-lab-notes/image-003.png" alt="操作截图 3" /></p>
+<h3 id="1-网络配置"><a class="markdownIt-Anchor" href="#1-网络配置"></a> 1. 网络配置</h3>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"># ls /etc/netplan/</span><br><span class="line"># vi /etc/netplan/01-netcfg.yaml</span><br><span class="line">network:</span><br><span class="line">version: 2</span><br><span class="line">ethernets:</span><br><span class="line">ens3:</span><br><span class="line">dhcp4: false</span><br><span class="line">match:</span><br><span class="line">macaddress: fa:16:3e:b1:41:1c</span><br><span class="line">set-name: ens3</span><br><span class="line">addresses: [192.168.1.101/24]</span><br><span class="line">routes:</span><br><span class="line">- to: default</span><br><span class="line">via: 192.168.1.1</span><br><span class="line">metric: 100</span><br><span class="line">nameservers:</span><br><span class="line">addresses: [202.201.0.131,202.201.0.132]</span><br><span class="line"># netplan apply</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/hadoop-spark-environment-lab-notes/image-004.png" alt="操作截图 4" /></p>
+<h3 id="2-设置ssh免密认证"><a class="markdownIt-Anchor" href="#2-设置ssh免密认证"></a> 2. 设置ssh免密认证</h3>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"># ssh-keygen -t rsa -P &#x27;&#x27; -f ~/.ssh/id_rsa</span><br><span class="line"># cat ~/.ssh/id_rsa.pub &gt;&gt; ~/.ssh/authorized_keys</span><br><span class="line"># chmod 0600 ~/.ssh/authorized_keys</span><br><span class="line"># vi ~/.ssh/config</span><br><span class="line">Host *</span><br><span class="line">StrictHostKeyChecking no</span><br><span class="line"># chmod 600 ~/.ssh/config</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/hadoop-spark-environment-lab-notes/image-005.png" alt="操作截图 5" /></p>
+<h3 id="3-主机名设置和解析"><a class="markdownIt-Anchor" href="#3-主机名设置和解析"></a> 3. 主机名设置和解析</h3>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># ip addr</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/hadoop-spark-environment-lab-notes/image-006.png" alt="操作截图 6" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"># vi /etc/hosts</span><br><span class="line">127.0.1.1       localhost</span><br><span class="line">127.0.1.1       hadoop  hadoop</span><br><span class="line">127.0.1.1       node01</span><br><span class="line">192.168.1.242   node01</span><br><span class="line"># hostnamectl set-hostname node01</span><br></pre></td></tr></table></figure>
+<h3 id="4-设置时区和时钟同步"><a class="markdownIt-Anchor" href="#4-设置时区和时钟同步"></a> 4. 设置时区和时钟同步</h3>
+<p>华为云服务器本身设置了时区和时钟同步，不需要额外设置</p>
+<p>详细设置可以参考之前的实验</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># timedatectl set-timezone Asia/Shanghai</span><br></pre></td></tr></table></figure>
+<h3 id="5-优化系统关闭不需要的服务"><a class="markdownIt-Anchor" href="#5-优化系统关闭不需要的服务"></a> 5. 优化系统关闭不需要的服务</h3>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"># vi /etc/sysctl.conf</span><br><span class="line">fs.file-max = 20480000</span><br><span class="line">fs.nr_open= 10240000</span><br><span class="line"># sysctl -p</span><br><span class="line"># vi /etc/security/limits.conf</span><br><span class="line">root soft nofile 102400</span><br><span class="line">root hard nofile 104800</span><br><span class="line">* soft nofile 102400</span><br><span class="line">* hard nofile 104800</span><br><span class="line"># reboot</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/hadoop-spark-environment-lab-notes/image-007.png" alt="操作截图 7" /></p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># systemctl set-default multi-user.target</span><br><span class="line"># systemctl disable cloud-config.service cloud-final.service cloud-init-local.service cloud-init.service cloud-init-hotplugd.socket cloud-config.target cloud-init.target  multipathd.service multipathd.socket iscsid.socket  apparmor.service systemd-resolved.service ufw.service fwupd.service  graphical.target cron</span><br><span class="line"># rm /etc/resolv.conf</span><br><span class="line"># vi /etc/resolv.conf</span><br><span class="line">nameserver 202.201.0.132</span><br></pre></td></tr></table></figure>
+<p>最后升级一下系统</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># apt update &amp;&amp; apt upgrade -y</span><br></pre></td></tr></table></figure>
+<h2 id="二-环境搭建过程"><a class="markdownIt-Anchor" href="#二-环境搭建过程"></a> 二、环境搭建过程</h2>
+<h3 id="1-在虚拟机上创建新用户"><a class="markdownIt-Anchor" href="#1-在虚拟机上创建新用户"></a> 1. 在虚拟机上创建新用户</h3>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"># adduser hadoop</span><br><span class="line"># sudo su - hadoop</span><br><span class="line">hadoop@node01:~$</span><br><span class="line">$ ssh-keygen -t rsa -P &#x27;&#x27; -f ~/.ssh/id_rsa</span><br><span class="line">$ cat ~/.ssh/id_rsa.pub &gt;&gt; ~/.ssh/authorized_keys</span><br><span class="line">$ chmod 0600 ~/.ssh/authorized_keys</span><br><span class="line">$ vi ~/.ssh/config</span><br><span class="line">Host *</span><br><span class="line">StrictHostKeyChecking no</span><br><span class="line">$ chmod 600 ~/.ssh/config</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/hadoop-spark-environment-lab-notes/image-008.png" alt="操作截图 8" /></p>
+<h3 id="2-安装jdk8并配置java环境"><a class="markdownIt-Anchor" href="#2-安装jdk8并配置java环境"></a> 2. 安装JDK8并配置java环境</h3>
+<p>在hadoop用户下完成jdk8的安装配置：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ wget http://bigdata.cg.lzu.edu.cn/bigdata_software/jdk-8u401-linux-x64.tar.gz</span><br><span class="line">$ tar -zxvf jdk-8u401-linux-x64.tar.gz</span><br><span class="line">$ ./jdk1.8.0_401/bin/java -version</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/hadoop-spark-environment-lab-notes/image-009.png" alt="操作截图 9" /></p>
+<p>在.bashrc文件中添加jdk8环境变量</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">$ vi .bashrc</span><br><span class="line">export JAVA_HOME=/home/hadoop/jdk1.8.0_401</span><br><span class="line">export PATH=$JAVA_HOME/bin:$PATH</span><br><span class="line">export CLASSPATH=.:$JAVA_HOME/jre/lib:$JAVA_HOME/lib:$JAVA_HOME/lib/tools.jar</span><br><span class="line">$ source .bashrc</span><br><span class="line">$ java -version</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/hadoop-spark-environment-lab-notes/image-010.png" alt="操作截图 10" /></p>
+<p>因为我们只有一个节点node01，所以到这里java环境就配置完毕了，不需要将jdk8包和修改后的环境变量scp到其他节点。</p>
+<h3 id="3-安装apache-hadoop-336并验证hdfs-yarn-mapreduce服务"><a class="markdownIt-Anchor" href="#3-安装apache-hadoop-336并验证hdfs-yarn-mapreduce服务"></a> 3. 安装Apache Hadoop 3.3.6并验证HDFS、YARN、MapReduce服务</h3>
+<p>下载hadoop-3.3.6二进制包，解压</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ wget http://bigdata.cg.lzu.edu.cn/bigdata_software/hadoop-3.3.6.tar.gz</span><br><span class="line">$ tar -zxvf hadoop-3.3.6.tar.gz</span><br></pre></td></tr></table></figure>
+<p>设置haodoop环境变量</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">$ vi ~/.bashrc</span><br><span class="line">export HADOOP_HOME=/home/hadoop/hadoop-3.3.6</span><br><span class="line">export PATH=$PATH:$HADOOP_HOME/bin:$HADOOP_HOME/sbin</span><br><span class="line">export HADOOP_MAPRED_HOME=$HADOOP_HOME</span><br><span class="line">export HDFS_NAMENODE_USER=hadoop</span><br><span class="line">export HDFS_DATANODE_USER=hadoop</span><br><span class="line">export HDFS_SECONDARYNAMENODE_USER=hadoop</span><br><span class="line">export YARN_RESOURCEMANAGER_USER=hadoop</span><br><span class="line">export YARN_NODEMANAGER_USER=hadoop</span><br><span class="line">$ source ~/.bashrc</span><br><span class="line">$ hadoop version</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/hadoop-spark-environment-lab-notes/image-011.png" alt="操作截图 11" /></p>
+<p>修改hadoop配置文件：</p>
+<h3 id="1-etchadoophadoop-envsh"><a class="markdownIt-Anchor" href="#1-etchadoophadoop-envsh"></a> 1. etc/hadoop/hadoop-env.sh</h3>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ cd $HADOOP_HOME</span><br><span class="line">$ vi etc/hadoop/hadoop-env.sh</span><br><span class="line">export JAVA_HOME=/home/hadoop/jdk1.8.0_401</span><br><span class="line">export HADOOP_HOME=/home/hadoop/hadoop-3.3.6</span><br><span class="line">export HADOOP_CONF_DIR=$&#123;HADOOP_HOME&#125;/etc/hadoop</span><br></pre></td></tr></table></figure>
+<h3 id="2-etchadoopcore-sitexml"><a class="markdownIt-Anchor" href="#2-etchadoopcore-sitexml"></a> 2. etc/hadoop/core-site.xml:</h3>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">$ vi etc/hadoop/core-site.xml</span><br><span class="line">&lt;configuration&gt;</span><br><span class="line">&lt;property&gt;</span><br><span class="line">&lt;name&gt;fs.defaultFS&lt;/name&gt;</span><br><span class="line">&lt;value&gt;hdfs://node01:9000&lt;/value&gt;</span><br><span class="line">&lt;/property&gt;</span><br><span class="line">&lt;property&gt;</span><br><span class="line">&lt;name&gt;hadoop.tmp.dir&lt;/name&gt;</span><br><span class="line">&lt;value&gt;/home/hadoop/hadoop-3.3.6/tmp&lt;/value&gt;</span><br><span class="line">&lt;/property&gt;</span><br><span class="line">&lt;/configuration&gt;</span><br></pre></td></tr></table></figure>
+<p>创建tmp目录</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ mkdir /home/hadoop/hadoop-3.3.6/tmp</span><br></pre></td></tr></table></figure>
+<h3 id="3-etchadoophdfs-sitexml"><a class="markdownIt-Anchor" href="#3-etchadoophdfs-sitexml"></a> 3. etc/hadoop/hdfs-site.xml</h3>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">$ vi etc/hadoop/hdfs-site.xml</span><br><span class="line">&lt;configuration&gt;</span><br><span class="line">&lt;property&gt;</span><br><span class="line">&lt;name&gt;dfs.namenode.http-address&lt;/name&gt;</span><br><span class="line">&lt;value&gt;node01:9870&lt;/value&gt;</span><br><span class="line">&lt;/property&gt;</span><br><span class="line">&lt;property&gt;</span><br><span class="line">&lt;name&gt;dfs.namenode.name.dir&lt;/name&gt;</span><br><span class="line">&lt;value&gt;/home/hadoop/hadoop-3.3.6/dfs/name&lt;/value&gt;</span><br><span class="line">&lt;/property&gt;</span><br><span class="line">&lt;property&gt;</span><br><span class="line">&lt;name&gt;dfs.datanode.data.dir&lt;/name&gt;</span><br><span class="line">&lt;value&gt;/home/hadoop/hadoop-3.3.6/dfs/data&lt;/value&gt;</span><br><span class="line">&lt;/property&gt;</span><br><span class="line">&lt;property&gt;</span><br><span class="line">&lt;name&gt;dfs.replication&lt;/name&gt;</span><br><span class="line">&lt;value&gt;1&lt;/value&gt;</span><br><span class="line">&lt;/property&gt;</span><br><span class="line">&lt;property&gt;</span><br><span class="line">&lt;name&gt;dfs.permissions.enabled&lt;/name&gt;</span><br><span class="line">&lt;value&gt;false&lt;/value&gt;</span><br><span class="line">&lt;/property&gt;</span><br><span class="line">&lt;/configuration&gt;</span><br></pre></td></tr></table></figure>
+<h3 id="4-etchadoopmapred-sitexml"><a class="markdownIt-Anchor" href="#4-etchadoopmapred-sitexml"></a> 4. etc/hadoop/mapred-site.xml</h3>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">$ vi etc/hadoop/mapred-site.xml</span><br><span class="line">&lt;configuration&gt;</span><br><span class="line">&lt;property&gt;</span><br><span class="line">&lt;name&gt;mapreduce.framework.name&lt;/name&gt;</span><br><span class="line">&lt;value&gt;yarn&lt;/value&gt;</span><br><span class="line">&lt;/property&gt;</span><br><span class="line">&lt;property&gt;</span><br><span class="line">&lt;name&gt;mapreduce.application.classpath&lt;/name&gt;</span><br><span class="line">&lt;value&gt;$HADOOP_MAPRED_HOME/share/hadoop/mapreduce/*:$HADOOP_MAPRED_HOME/share/hadoop/mapreduce/lib/*&lt;/value&gt;</span><br><span class="line">&lt;/property&gt;</span><br><span class="line">&lt;property&gt;</span><br><span class="line">&lt;name&gt;mapreduce.admin.user.env&lt;/name&gt;</span><br><span class="line">&lt;value&gt;HADOOP_MAPRED_HOME=/home/hadoop/hadoop-3.3.6&lt;/value&gt;</span><br><span class="line">&lt;/property&gt;</span><br><span class="line">&lt;property&gt;</span><br><span class="line">&lt;name&gt;yarn.app.mapreduce.am.env&lt;/name&gt;</span><br><span class="line">&lt;value&gt;HADOOP_MAPRED_HOME=/home/hadoop/hadoop-3.3.6&lt;/value&gt;</span><br><span class="line">&lt;/property&gt;</span><br><span class="line">&lt;/configuration&gt;</span><br></pre></td></tr></table></figure>
+<h3 id="5-etchadoopyarn-sitexml"><a class="markdownIt-Anchor" href="#5-etchadoopyarn-sitexml"></a> 5. etc/hadoop/yarn-site.xml</h3>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">$ vi etc/hadoop/yarn-site.xml</span><br><span class="line">&lt;configuration&gt;</span><br><span class="line">&lt;property&gt;</span><br><span class="line">&lt;name&gt;yarn.nodemanager.aux-services&lt;/name&gt;</span><br><span class="line">&lt;value&gt;mapreduce_shuffle&lt;/value&gt;</span><br><span class="line">&lt;/property&gt;</span><br><span class="line">&lt;property&gt;</span><br><span class="line">&lt;name&gt;yarn.nodemanager.aux-services.mapreduce_shuffle.class&lt;/name&gt;</span><br><span class="line">&lt;value&gt;org.apache.hadoop.mapred.ShuffleHandler&lt;/value&gt;</span><br><span class="line">&lt;/property&gt;</span><br><span class="line">&lt;property&gt;</span><br><span class="line">&lt;name&gt;yarn.resourcemanager.hostname&lt;/name&gt;</span><br><span class="line">&lt;value&gt;node01&lt;/value&gt;</span><br><span class="line">&lt;/property&gt;</span><br><span class="line">&lt;property&gt;</span><br><span class="line">&lt;name&gt;yarn.nodemanager.env-whitelist&lt;/name&gt;</span><br><span class="line">&lt;value&gt;JAVA_HOME,HADOOP_COMMON_HOME,HADOOP_HDFS_HOME,HADOOP_CONF_DIR,CLASSPATH_PREPEND_DISTCACHE,HADOOP_YARN_HOME,HADOOP_MAPRED_HOME&lt;/value&gt;</span><br><span class="line">&lt;/property&gt;</span><br><span class="line">&lt;property&gt;</span><br><span class="line">&lt;name&gt;yarn.nodemanager.vmem-check-enabled&lt;/name&gt;</span><br><span class="line">&lt;value&gt;false&lt;/value&gt;</span><br><span class="line">&lt;/property&gt;</span><br><span class="line">&lt;/configuration&gt;</span><br></pre></td></tr></table></figure>
+<h3 id="6-etchadoopworkers"><a class="markdownIt-Anchor" href="#6-etchadoopworkers"></a> 6. etc/hadoop/workers</h3>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ vi etc/hadoop/workers</span><br><span class="line">node01</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/hadoop-spark-environment-lab-notes/image-012.png" alt="操作截图 12" /></p>
+<p>初始文件系统</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$  hdfs namenode -format</span><br></pre></td></tr></table></figure>
+<p>启动分布式文件系统hdfs服务：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$  start-dfs.sh</span><br></pre></td></tr></table></figure>
+<p>第一次启动会创建数据目录和日志目录</p>
+<p>查看进程：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ jps</span><br></pre></td></tr></table></figure>
+<p>启动资源管理服务yarn：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">start-yarn.sh</span><br><span class="line">$ jps</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/hadoop-spark-environment-lab-notes/image-013.png" alt="操作截图 13" /></p>
+<p>上述资源启动均成功</p>
+<p>资源管理默认web页面为<a target="_blank" rel="noopener" href="http://node01:8088/">http://node01:8088/</a></p>
+<p>因为这里使用的是云服务，因此这里地址为<a target="_blank" rel="noopener" href="http://121.36.29.177:8088/">http://121.36.29.177:8088/</a></p>
+<p><img src="/images/posts/hadoop-spark-environment-lab-notes/image-014.png" alt="操作截图 14" /></p>
+<p>node01交互界面： <a target="_blank" rel="noopener" href="http://121.36.29.177:9870/">http://121.36.29.177:9870/</a></p>
+<p><img src="/images/posts/hadoop-spark-environment-lab-notes/image-015.png" alt="操作截图 15" /></p>
+<h3 id="4-学习使用hdfs"><a class="markdownIt-Anchor" href="#4-学习使用hdfs"></a> 4. 学习使用HDFS</h3>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ hdfs dfs -mkdir /user</span><br><span class="line">$ hdfs dfs -mkdir /user/hadoop</span><br></pre></td></tr></table></figure>
+<p>创建input测试目录，上传测试文件：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ hdfs dfs -mkdir input</span><br><span class="line">$ cd $HADOOP_HOME</span><br><span class="line">hadoop@node01:~/hadoop-3.3.6$ hdfs dfs -put etc/hadoop/*.xml input</span><br><span class="line">hadoop@node01:~/hadoop-3.3.6$ hdfs dfs -ls</span><br><span class="line">hadoop@node01:~/hadoop-3.3.6$ hdfs dfs -ls input</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/hadoop-spark-environment-lab-notes/image-016.png" alt="操作截图 16" /></p>
+<p>关于hdfs dfs命令可以参考帮助</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hdfs dfs -h</span><br></pre></td></tr></table></figure>
+<p>下面给出hdfs的基本命令以及解释</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">hdfs dfs -ls：列出 HDFS 中的文件和目录。</span><br><span class="line">hdfs dfs -put &lt;local_path&gt; &lt;hdfs_path&gt;：将本地文件上传到 HDFS 中。</span><br><span class="line">hdfs dfs -get &lt;hdfs_path&gt; &lt;local_path&gt;：从 HDFS 中下载文件到本地文件系统。</span><br><span class="line">hdfs dfs -mkdir &lt;hdfs_path&gt;：在 HDFS 中创建一个新目录。</span><br><span class="line">hdfs dfs -copyFromLocal &lt;local_path&gt; &lt;hdfs_path&gt;：从本地文件系统复制文件到 HDFS 中。</span><br><span class="line">hdfs dfs -copyToLocal &lt;hdfs_path&gt; &lt;local_path&gt;：从 HDFS 复制文件到本地文件系统。</span><br><span class="line">hdfs dfs -mv &lt;source_path&gt; &lt;destination_path&gt;：移动文件或目录到新的位置。</span><br><span class="line">hdfs dfs -chown &lt;owner&gt; &lt;hdfs_path&gt;：更改文件或目录的所有者。</span><br><span class="line">hdfs dfs -chgrp &lt;group&gt; &lt;hdfs_path&gt;：更改文件或目录的所属组。</span><br><span class="line">hdfs dfs -chmod &lt;permissions&gt; &lt;hdfs_path&gt;：更改文件或目录的权限。</span><br><span class="line">hdfs dfs -appendToFile &lt;local_path&gt; &lt;hdfs_path&gt;：将本地文件内容追加到 HDFS 文件中。</span><br><span class="line">hdfs dfs -rm &lt;hdfs_path&gt;：删除 HDFS 中的文件。</span><br><span class="line">hdfs dfs -rmdir &lt;hdfs_path&gt;：删除 HDFS 中的空目录。</span><br><span class="line">hdfs dfs -du &lt;hdfs_path&gt;：显示指定目录的大小。</span><br><span class="line">hdfs dfs -expunge：清空 HDFS 中的垃圾文件。</span><br></pre></td></tr></table></figure>
+<p>运行例子</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ cd $HADOOP_HOME</span><br><span class="line">hadoop@node01:~/hadoop-3.3.6$ bin/hadoop jar share/hadoop/mapreduce/hadoop-mapreduce-examples-3.3.6.jar grep input output &#x27;dfs[a-z.]+&#x27;</span><br></pre></td></tr></table></figure>
+<p>查看输出：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ bin/hdfs dfs -cat output/*</span><br><span class="line">$ hdfs dfs -cat output/*</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/hadoop-spark-environment-lab-notes/image-017.png" alt="操作截图 17" /></p>
+<p>运行pi例子：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ cd $HADOOP_HOME/share/hadoop/mapreduce</span><br><span class="line">$ hadoop jar hadoop-mapreduce-examples-3.3.6.jar pi 10 20</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/hadoop-spark-environment-lab-notes/image-018.png" alt="操作截图 18" /></p>
+<p>最后，可以运行以下命令停止服务：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ stop-yarn.sh</span><br><span class="line">$ stop-dfs.sh</span><br></pre></td></tr></table></figure>
+<h3 id="5-完成wordcount-examples"><a class="markdownIt-Anchor" href="#5-完成wordcount-examples"></a> 5. 完成WordCount examples</h3>
+<h3 id="1-create-java-sourcecode-file"><a class="markdownIt-Anchor" href="#1-create-java-sourcecode-file"></a> 1. Create java sourcecode file</h3>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">$ vi WordCount.java</span><br><span class="line">import java.io.IOException;</span><br><span class="line">import java.util.StringTokenizer;</span><br><span class="line">import org.apache.hadoop.conf.Configuration;</span><br><span class="line">import org.apache.hadoop.fs.Path;</span><br><span class="line">import org.apache.hadoop.io.IntWritable;</span><br><span class="line">import org.apache.hadoop.io.Text;</span><br><span class="line">import org.apache.hadoop.mapreduce.Job;</span><br><span class="line">import org.apache.hadoop.mapreduce.Mapper;</span><br><span class="line">import org.apache.hadoop.mapreduce.Reducer;</span><br><span class="line">import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;</span><br><span class="line">import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;</span><br><span class="line">public class WordCount &#123;</span><br><span class="line">public static class TokenizerMapper</span><br><span class="line">extends Mapper&lt;Object, Text, Text, IntWritable&gt;&#123;</span><br><span class="line">private final static IntWritable one = new IntWritable(1);</span><br><span class="line">private Text word = new Text();</span><br><span class="line">public void map(Object key, Text value, Context context</span><br><span class="line">) throws IOException, InterruptedException &#123;</span><br></pre></td></tr></table></figure>
+<p>StringTokenizer itr = new StringTokenizer(value.toString());</p>
+<p>while (itr.hasMoreTokens()) {</p>
+<p>word.set(itr.nextToken());</p>
+<p>context.write(word, one);</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">&#125;</span><br><span class="line">&#125;</span><br><span class="line">&#125;</span><br><span class="line">public static class IntSumReducer</span><br><span class="line">extends Reducer&lt;Text,IntWritable,Text,IntWritable&gt; &#123;</span><br><span class="line">private IntWritable result = new IntWritable();</span><br><span class="line">public void reduce(Text key, Iterable&lt;IntWritable&gt; values,</span><br><span class="line">Context context</span><br><span class="line">) throws IOException, InterruptedException &#123;</span><br></pre></td></tr></table></figure>
+<p>int sum = 0;</p>
+<p>for (IntWritable val : values) {</p>
+<p>sum += val.get();</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>result.set(sum);</p>
+<p>context.write(key, result);</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">&#125;</span><br><span class="line">&#125;</span><br><span class="line">public static void main(String[] args) throws Exception &#123;</span><br><span class="line">Configuration conf = new Configuration();</span><br><span class="line">Job job = Job.getInstance(conf, &quot;word count&quot;);</span><br></pre></td></tr></table></figure>
+<p>job.setJarByClass(WordCount.class);</p>
+<p>job.setMapperClass(TokenizerMapper.class);</p>
+<p>job.setCombinerClass(IntSumReducer.class);</p>
+<p>job.setReducerClass(IntSumReducer.class);</p>
+<p>job.setOutputKeyClass(Text.class);</p>
+<p>job.setOutputValueClass(IntWritable.class);</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">FileInputFormat.addInputPath(job, new Path(args[0]));</span><br><span class="line">FileOutputFormat.setOutputPath(job, new Path(args[1]));</span><br><span class="line">System.exit(job.waitForCompletion(true) ? 0 : 1);</span><br><span class="line">&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="2-compile-wordcountjava-and-create-a-jar"><a class="markdownIt-Anchor" href="#2-compile-wordcountjava-and-create-a-jar"></a> 2. Compile WordCount.java and create a jar:</h3>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ export HADOOP_CLASSPATH=$JAVA_HOME/lib/tools.jar</span><br><span class="line">$ hadoop com.sun.tools.javac.Main WordCount.java</span><br><span class="line">$ jar cf wc.jar WordCount*.class</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/hadoop-spark-environment-lab-notes/image-019.png" alt="操作截图 19" /></p>
+<h3 id="3-create-text-file-and-upload-it-to-hdfs"><a class="markdownIt-Anchor" href="#3-create-text-file-and-upload-it-to-hdfs"></a> 3. Create text file and upload it to hdfs</h3>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">$ vi file1</span><br><span class="line">Hello World  Bye World</span><br><span class="line">Hello Hadoop Bye Hadoop</span><br><span class="line">Bye Hadoop Hello Hadoop</span><br><span class="line">$ hdfs dfs -rm -r input</span><br><span class="line">$ hdfs dfs -rm -r output</span><br><span class="line">$ hdfs dfs -mkdir input</span><br><span class="line">$ hdfs dfs -put file1 input</span><br><span class="line">$ hdfs dfs -ls input</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/hadoop-spark-environment-lab-notes/image-020.png" alt="操作截图 20" /></p>
+<h3 id="4-run-the-application"><a class="markdownIt-Anchor" href="#4-run-the-application"></a> 4. Run the application:</h3>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ hadoop jar wc.jar WordCount /user/hadoop/input/file1 /user/hadoop/output/</span><br><span class="line">$ hdfs dfs -ls output</span><br><span class="line">$ hdfs dfs -cat output/part-r-00000</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/hadoop-spark-environment-lab-notes/image-021.png" alt="操作截图 21" /></p>
+<h3 id="6-启动spark并且验证spark交互界面"><a class="markdownIt-Anchor" href="#6-启动spark并且验证spark交互界面"></a> 6. 启动spark并且验证spark交互界面</h3>
+<p>安装scala语言支持</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ sudo apt update &amp;&amp; sudo apt install scala -y</span><br></pre></td></tr></table></figure>
+<p>下载解压spark-3.4.2</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ wget http://bigdata.cg.lzu.edu.cn/bigdata_software/spark-3.4.2-bin-hadoop3.tgz</span><br><span class="line">$ tar -zxvf spark-3.4.2-bin-hadoop3.tgz</span><br></pre></td></tr></table></figure>
+<p>添加环境变量</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ vi .bashrc</span><br></pre></td></tr></table></figure>
+<p>#spark env config</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">export SPARK_HOME=~/spark-3.4.2-bin-hadoop3</span><br><span class="line">export PATH=$PATH:$SPARK_HOME/bin</span><br><span class="line">export LD_LIBRARY_PATH=$HADOOP_HOME/lib/native/:$LD_LIBRARY_PATH</span><br><span class="line">$ source .bashrc</span><br></pre></td></tr></table></figure>
+<p>配置</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ cd $SPARK_HOME/conf</span><br><span class="line">$ cp workers.template workers</span><br></pre></td></tr></table></figure>
+<p>添加工作节点（单节点只添加本机）</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">$ vi workers</span><br><span class="line">node01</span><br><span class="line">$ cp spark-env.sh.template spark-env.sh</span><br><span class="line">$ vi spark-env.sh</span><br><span class="line">export JAVA_HOME=/home/hadoop/jdk1.8.0_401</span><br><span class="line">export HADOOP_HOME=/home/hadoop/hadoop-3.3.6</span><br><span class="line">export HADOOP_CONF_DIR=/home/hadoop/hadoop-3.3.6/etc/hadoop/</span><br><span class="line">export SPARK_MASTER_HOST=node01</span><br><span class="line">export SPARK_PID_DIR=/home/hadoop/spark-3.4.2-bin-hadoop3/data</span><br><span class="line">export SPARK_LOCAL_DIR=/home/hadoop/spark-3.4.2-bin-hadoop3</span><br><span class="line">export SPARK_EXECUTOR_MEMORY=512M</span><br><span class="line">export SPARK_WORKER_MEMORY=2G</span><br><span class="line">export SCALA_HOME=/usr/share/scala</span><br><span class="line">$ cp spark-defaults.conf.template spark-defaults.conf</span><br><span class="line">$ vi spark-defaults.conf</span><br><span class="line">spark.master                     spark://node01:7077</span><br></pre></td></tr></table></figure>
+<p>这里不需要拷贝到其他节点，因为我使用的是单机伪集群。</p>
+<p><img src="/images/posts/hadoop-spark-environment-lab-notes/image-022.png" alt="操作截图 22" /></p>
+<p>启动服务</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ $SPARK_HOME/sbin/start-all.sh</span><br><span class="line">$ jps</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/hadoop-spark-environment-lab-notes/image-023.png" alt="操作截图 23" /></p>
+<p>访问Web查看</p>
+<p><a target="_blank" rel="noopener" href="http://node01:8080/">http://node01:8080/</a></p>
+<p>这里对应为：<a target="_blank" rel="noopener" href="http://121.36.29.177:8080/">http://121.36.29.177:8080/</a></p>
+<p>可以看到服务均成功启动。</p>
+<p><img src="/images/posts/hadoop-spark-environment-lab-notes/image-024.png" alt="操作截图 24" /></p>
+<p>运行一个例子</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ $SPARK_HOME/bin/run-example SparkPi 10</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/hadoop-spark-environment-lab-notes/image-025.png" alt="操作截图 25" /></p>
+<p>测试spark-shell</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ spark-shell</span><br><span class="line">scala&gt; val textFile=sc.textFile(&quot;file:///home/hadoop/spark-3.4.2-bin-hadoop3/README.md&quot;)</span><br><span class="line">scala&gt; textFile.count()</span><br><span class="line">scala&gt; :quit</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/hadoop-spark-environment-lab-notes/image-026.png" alt="操作截图 26" /></p>
+<p>测试pyspark</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ pyspark</span><br><span class="line">&gt;&gt;&gt; lines=sc.textFile(&quot;file:///home/hadoop/spark-3.4.2-bin-hadoop3/README.md&quot;)</span><br><span class="line">&gt;&gt;&gt; lines.count()</span><br><span class="line">125</span><br><span class="line">&gt;&gt;&gt; exit()</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/hadoop-spark-environment-lab-notes/image-027.png" alt="操作截图 27" /></p>
+<h3 id="7-完成spark-submit-exercise"><a class="markdownIt-Anchor" href="#7-完成spark-submit-exercise"></a> 7. 完成spark-submit exercise</h3>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">$ wget http://bigdata.cg.lzu.edu.cn/bigdata_software/spark_examples/try1.txt</span><br><span class="line">$ vi try1.py</span><br><span class="line">from pyspark import SparkConf,SparkContext</span><br><span class="line">conf = SparkConf().setMaster(&quot;spark://node01:7077&quot;).setAppName(&quot;My try1&quot;)</span><br><span class="line">sc = SparkContext(conf=conf)</span><br><span class="line">sc.setLogLevel(&#x27;WARN&#x27;)</span><br><span class="line">txt = sc.textFile(&quot;try1.txt&quot;)</span><br><span class="line">print(txt.count())</span><br><span class="line">as_lines = txt.filter(lambda line: &#x27;as&#x27; in line.lower())</span><br><span class="line">print(as_lines.count())</span><br></pre></td></tr></table></figure>
+<p>将文件上传到hdfs</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hdfs dfs -put try1.txt</span><br></pre></td></tr></table></figure>
+<p>提交任务</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ spark-submit  try1.py</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/hadoop-spark-environment-lab-notes/image-028.png" alt="操作截图 28" /></p>
+<p>使用jupyter notebook</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">$ sudo apt update &amp;&amp; sudo apt install pip</span><br><span class="line">$ sudo pip3 install jupyter</span><br><span class="line">$ sudo pip3 install pyspark</span><br><span class="line">$ vi ~/.bashrc</span><br><span class="line">export  PYTHONPATH=$PATH:$SPARK_HOME/python</span><br><span class="line">export PYSPARK_PYTHON=python3</span><br><span class="line">$ source ~/.bashrc</span><br><span class="line">$ jupyter notebook --ip=node01</span><br><span class="line">$ $SPARK_HOME/sbin/stop-all.sh</span><br></pre></td></tr></table></figure>
+<p><img src="/images/posts/hadoop-spark-environment-lab-notes/image-029.png" alt="操作截图 29" /></p>
+<p>至此，Hadoop、Spark、spark-submit、PySpark 和 Jupyter Notebook 的基本测试都已经跑通。</p>
+<h2 id="三-一些记录"><a class="markdownIt-Anchor" href="#三-一些记录"></a> 三、一些记录</h2>
+<p>这次搭建主要覆盖了以下几个方面：</p>
+<p>（1）Linux 用户和运行环境管理：创建独立的 <code>hadoop</code> 用户，配置 SSH 免密、JDK 和环境变量，保证 Hadoop/Spark 不依赖 root 用户运行。</p>
+<p>（2）Hadoop 基础组件：安装并配置 HDFS、YARN 和 MapReduce，理解 NameNode、DataNode、ResourceManager、NodeManager 等组件的基本关系。</p>
+<p>（3）HDFS 与 MapReduce：通过 HDFS 命令完成文件上传、下载、浏览和删除，并用 WordCount 理解 MapReduce 作业的提交和输出流程。</p>
+<p>（4）Spark 生态：启动 Spark Standalone，使用 <code>spark-shell</code>、<code>pyspark</code> 和 <code>spark-submit</code> 验证交互式计算与作业提交。</p>
+
+      
+    </div>
+    <div class="article-footer">
+      
+<blockquote class="mt-2x">
+  <ul class="post-copyright list-unstyled">
+    
+    <li class="post-copyright-link hidden-xs">
+      <strong>本文链接：</strong>
+      <a href="https://zhouzhq2021.github.io/2026/06/08/hadoop-spark-environment-lab-notes/" title="Hadoop 与 Spark 单节点大数据环境搭建" target="_blank" rel="external">https://zhouzhq2021.github.io/2026/06/08/hadoop-spark-environment-lab-notes/</a>
+    </li>
+    
+    <li class="post-copyright-license">
+      <strong>版权声明： </strong> 本博客所有文章除特别声明外，均采用 <a href="http://creativecommons.org/licenses/by/4.0/deed.zh" target="_blank" rel="external">CC BY 4.0 CN协议</a> 许可协议。转载请注明出处！
+    </li>
+  </ul>
+</blockquote>
+
+
+    </div>
+  </article>
+  
+    
+  <section id="comments">
+  	
+           
+    
+  </section>
+
+
+  
+</div>
+
+  <nav class="bar bar-footer clearfix" data-stick-bottom>
+  <div class="bar-inner">
+  
+  <ul class="pager pull-left">
+    
+    <li class="prev">
+      <a href="/2026/06/08/kubernetes-lab-notes/" title="Kubernetes 实践：集群安装与应用部署"><i class="icon icon-angle-left" aria-hidden="true"></i><span>&nbsp;&nbsp;Newer</span></a>
+    </li>
+    
+    
+    <li class="next">
+      <a href="/2026/06/08/ceph-cluster-lab-notes/" title="Ceph Cluster Installation：分布式存储集群搭建与使用"><span>Older&nbsp;&nbsp;</span><i class="icon icon-angle-right" aria-hidden="true"></i></a>
+    </li>
+    
+    
+  </ul>
+  
+  
+  
+  <div class="bar-right">
+    
+  </div>
+  </div>
+</nav>
+  
+
+
+
+</main>
+
+  <footer class="footer" itemscope itemtype="http://schema.org/WPFooter">
+	
+	
+    <ul class="social-links">
+    	
+        <li><a href="https://github.com/zhouzhq2021" target="_blank" title="Github" data-toggle=tooltip data-placement=top><i class="icon icon-github"></i></a></li>
+        
+        <li><a href="mailto:zhouzhq2021@sjtu.edu.cn" target="_blank" title="Email" data-toggle=tooltip data-placement=top><i class="icon icon-email"></i></a></li>
+        
+        <li><a href="/atom.xml" target="_blank" title="Rss" data-toggle=tooltip data-placement=top><i class="icon icon-rss"></i></a></li>
+        
+    </ul>
+
+    <div class="copyright">
+    	
+        &copy; 2026 Zhongquan Zhou
+        
+        <div class="publishby">
+        	Theme by <a href="https://github.com/cofess" target="_blank"> cofess </a>base on <a href="https://github.com/cofess/hexo-theme-pure" target="_blank">pure</a>.
+        </div>
+    </div>
+</footer>
+  <script src="//cdn.jsdelivr.net/npm/jquery@1.12.4/dist/jquery.min.js"></script>
+<script>
+window.jQuery || document.write('<script src="js/jquery.min.js"><\/script>')
+</script>
+
+<script src="/js/plugin.min.js"></script>
+
+
+<script src="/js/application.js"></script>
+
+
+    <script>
+(function (window) {
+    var INSIGHT_CONFIG = {
+        TRANSLATION: {
+            POSTS: 'Posts',
+            PAGES: 'Pages',
+            CATEGORIES: 'Categories',
+            TAGS: 'Tags',
+            UNTITLED: '(Untitled)',
+        },
+        ROOT_URL: '/',
+        CONTENT_URL: '/content.json',
+    };
+    window.INSIGHT_CONFIG = INSIGHT_CONFIG;
+})(window);
+</script>
+
+<script src="/js/insight.js"></script>
+
+
+
+
+
+
+   
+<script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+   
+    
+  <!-- <link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css"> -->
+  <script src="//cdn.jsdelivr.net/npm/gitalk@1.6.2/dist/gitalk.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/blueimp-md5@2.10.0/js/md5.min.js"></script>
+  <script type="text/javascript">
+  var gitalk = new Gitalk({
+    clientID: 'Ov23ligxx5efd5yRAiAq',
+    clientSecret: '3114825a44fe2c1af88fabb6c926e5a3e0256f27',
+    repo: 'zhouzhq2021.github.io',
+    owner: 'zhouzhq2021',
+    admin: ['zhouzhq2021'],
+    id: md5(location.pathname),
+    distractionFreeMode: true,
+    language: 'en',
+    enableHotKey: 'true'
+  })
+  gitalk.render('comments')
+  </script>
+      
+
+
+
+  <script src="//cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.3.5/dist/jquery.fancybox.min.js"></script>
+  <script>
+  //利用 FancyBox 实现点击图片放大
+  $(document).ready(function() {
+    $('article img').not('[hidden]').not('.panel-body img').each(function() {
+      var $image = $(this);
+      var imageCaption = $image.attr('alt');
+      var $imageWrapLink = $image.parent('a');
+      if ($imageWrapLink.length < 1) {
+        var src = this.getAttribute('src');
+        var idx = src.lastIndexOf('?');
+        if (idx != -1) {
+          src = src.substring(0, idx);
+        }
+        $imageWrapLink = $image.wrap('<a href="' + src + '"></a>').parent('a');
+      }
+      $imageWrapLink.attr('data-fancybox', 'images');
+      if (imageCaption) {
+        $imageWrapLink.attr('data-caption', imageCaption);
+      }
+    });
+    $().fancybox({
+      selector: '[data-fancybox="images"]',
+      hash: false,
+      loop: false,
+    });
+  });
+  </script>
+
+
+
+
+
+</body>
+</html>
