@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="640" viewBox="0 0 1200 640">
+  <rect width="1200" height="640" fill="#f8fafc"/>
+  <style>
+    .title{font-family:'Droid Sans Fallback',sans-serif;font-size:30px;font-weight:700;fill:#0f172a}.h{font-family:'Droid Sans Fallback',sans-serif;font-size:22px;font-weight:700;fill:#fff}.t{font-family:'Droid Sans Fallback',sans-serif;font-size:18px;fill:#1e293b}.n{font-family:'DejaVu Sans Mono',monospace;font-size:20px;font-weight:700;fill:#0f172a}.small{font-family:'Droid Sans Fallback',sans-serif;font-size:15px;fill:#475569}
+  </style>
+  <text x="600" y="48" text-anchor="middle" class="title">大模型显存账本：训练状态与推理状态并不相同</text>
+  <rect x="55" y="85" width="520" height="58" rx="12" fill="#2563eb"/>
+  <text x="315" y="122" text-anchor="middle" class="h">训练：静态状态 + 激活 + 通信缓冲</text>
+  <rect x="625" y="85" width="520" height="58" rx="12" fill="#7c3aed"/>
+  <text x="885" y="122" text-anchor="middle" class="h">推理：权重 + KV Cache + 运行时空间</text>
+  <g transform="translate(55,170)">
+    <rect width="520" height="300" rx="16" fill="#dbeafe" stroke="#93c5fd" stroke-width="2"/>
+    <rect x="22" y="25" width="105" height="190" rx="9" fill="#60a5fa"/><text x="74" y="113" text-anchor="middle" class="n">2B</text><text x="74" y="140" text-anchor="middle" class="small">BF16 权重</text>
+    <rect x="140" y="25" width="105" height="190" rx="9" fill="#93c5fd"/><text x="192" y="113" text-anchor="middle" class="n">2B</text><text x="192" y="140" text-anchor="middle" class="small">梯度</text>
+    <rect x="258" y="25" width="105" height="190" rx="9" fill="#bfdbfe"/><text x="310" y="113" text-anchor="middle" class="n">4B</text><text x="310" y="140" text-anchor="middle" class="small">主权重</text>
+    <rect x="376" y="25" width="122" height="190" rx="9" fill="#eff6ff" stroke="#93c5fd"/><text x="437" y="102" text-anchor="middle" class="n">8B</text><text x="437" y="130" text-anchor="middle" class="small">Adam m/v</text><text x="437" y="156" text-anchor="middle" class="small">两个 FP32 状态</text>
+    <text x="260" y="252" text-anchor="middle" class="t">常用近似：每参数 16 Bytes（不含激活）</text>
+    <text x="260" y="280" text-anchor="middle" class="small">激活随 Batch、序列长度、层数与重计算策略变化</text>
+  </g>
+  <g transform="translate(625,170)">
+    <rect width="520" height="300" rx="16" fill="#ede9fe" stroke="#c4b5fd" stroke-width="2"/>
+    <rect x="25" y="30" width="200" height="180" rx="10" fill="#a78bfa"/><text x="125" y="108" text-anchor="middle" class="n">N × dtype</text><text x="125" y="140" text-anchor="middle" class="t">模型权重</text>
+    <rect x="245" y="30" width="250" height="180" rx="10" fill="#ddd6fe"/><text x="370" y="95" text-anchor="middle" class="n">2L·Hkv·dh·b</text><text x="370" y="128" text-anchor="middle" class="t">每 Token KV Cache</text><text x="370" y="158" text-anchor="middle" class="small">再乘并发数与缓存长度</text>
+    <text x="260" y="250" text-anchor="middle" class="t">动态上限由请求长度分布与并发共同决定</text>
+    <text x="260" y="280" text-anchor="middle" class="small">还要预留 Workspace、CUDA Graph 与分配器空间</text>
+  </g>
+  <path d="M315 500 C315 565 480 575 600 590" fill="none" stroke="#64748b" stroke-width="3"/>
+  <path d="M885 500 C885 565 720 575 600 590" fill="none" stroke="#64748b" stroke-width="3"/>
+  <rect x="400" y="560" width="400" height="58" rx="14" fill="#0f172a"/>
+  <text x="600" y="596" text-anchor="middle" class="h">容量规划必须使用同一套资源账本</text>
+</svg>

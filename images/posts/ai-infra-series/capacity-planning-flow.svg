@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="620" viewBox="0 0 1400 620">
+  <rect width="1400" height="620" fill="#f8fafc"/>
+  <style>.title{font-family:'Droid Sans Fallback',sans-serif;font-size:30px;font-weight:700;fill:#0f172a}.h{font-family:'Droid Sans Fallback',sans-serif;font-size:19px;font-weight:700;fill:#fff}.t{font-family:'Droid Sans Fallback',sans-serif;font-size:19px;font-weight:700;fill:#0f172a}.s{font-family:'Droid Sans Fallback',sans-serif;font-size:15px;fill:#475569}.a{stroke:#64748b;stroke-width:4;marker-end:url(#m)}</style>
+  <defs><marker id="m" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#64748b"/></marker></defs>
+  <text x="700" y="48" text-anchor="middle" class="title">大模型推理服务容量规划的闭环</text>
+  <g transform="translate(55,95)"><rect width="250" height="105" rx="16" fill="#0369a1"/><text x="125" y="43" text-anchor="middle" class="h">负载与 SLO</text><text x="125" y="74" text-anchor="middle" class="h">长度、到达率、TTFT、TPOT</text></g>
+  <line x1="305" y1="148" x2="365" y2="148" class="a"/>
+  <g transform="translate(370,95)"><rect width="250" height="105" rx="16" fill="#2563eb"/><text x="125" y="43" text-anchor="middle" class="h">资源账本</text><text x="125" y="74" text-anchor="middle" class="h">权重、KV、Workspace</text></g>
+  <line x1="620" y1="148" x2="680" y2="148" class="a"/>
+  <g transform="translate(685,95)"><rect width="250" height="105" rx="16" fill="#4f46e5"/><text x="125" y="43" text-anchor="middle" class="h">并行与精度</text><text x="125" y="74" text-anchor="middle" class="h">TP、副本数、量化</text></g>
+  <line x1="935" y1="148" x2="995" y2="148" class="a"/>
+  <g transform="translate(1000,95)"><rect width="250" height="105" rx="16" fill="#7c3aed"/><text x="125" y="43" text-anchor="middle" class="h">内存与调度</text><text x="125" y="74" text-anchor="middle" class="h">Block、Budget、Cache</text></g>
+  <line x1="1125" y1="200" x2="1125" y2="270" class="a"/>
+  <g transform="translate(1000,275)"><rect width="250" height="105" rx="16" fill="#9333ea"/><text x="125" y="43" text-anchor="middle" class="h">真实分布压测</text><text x="125" y="74" text-anchor="middle" class="h">P50/P95/P99 与突发流量</text></g>
+  <line x1="1000" y1="328" x2="940" y2="328" class="a"/>
+  <g transform="translate(685,275)"><rect width="250" height="105" rx="16" fill="#be185d"/><text x="125" y="43" text-anchor="middle" class="h">瓶颈归因</text><text x="125" y="74" text-anchor="middle" class="h">排队、计算、带宽、通信</text></g>
+  <line x1="685" y1="328" x2="625" y2="328" class="a"/>
+  <g transform="translate(370,275)"><rect width="250" height="105" rx="16" fill="#dc2626"/><text x="125" y="43" text-anchor="middle" class="h">方案比较</text><text x="125" y="74" text-anchor="middle" class="h">Goodput、成本、可靠性</text></g>
+  <line x1="370" y1="328" x2="310" y2="328" class="a"/>
+  <g transform="translate(55,275)"><rect width="250" height="105" rx="16" fill="#ea580c"/><text x="125" y="43" text-anchor="middle" class="h">上线与门禁</text><text x="125" y="74" text-anchor="middle" class="h">监控、限流、性能回归</text></g>
+  <path d="M180 380 V475 H810 V390" fill="none" class="a"/>
+  <rect x="365" y="455" width="490" height="95" rx="16" fill="#fff" stroke="#64748b" stroke-width="2"/>
+  <text x="610" y="490" text-anchor="middle" class="t">持续反馈</text>
+  <text x="610" y="522" text-anchor="middle" class="s">生产流量更新负载模型，回归结果修正容量与调度参数</text>
+  <text x="700" y="592" text-anchor="middle" class="s">容量规划不是一次性的“显存除法”，而是从业务约束到测量证据的连续闭环</text>
+</svg>

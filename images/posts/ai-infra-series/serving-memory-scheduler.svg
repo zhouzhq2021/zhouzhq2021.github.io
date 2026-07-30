@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1300" height="720" viewBox="0 0 1300 720">
+  <rect width="1300" height="720" fill="#f8fafc"/>
+  <style>.title{font-family:'Droid Sans Fallback',sans-serif;font-size:30px;font-weight:700;fill:#0f172a}.h{font-family:'Droid Sans Fallback',sans-serif;font-size:21px;font-weight:700;fill:#fff}.t{font-family:'Droid Sans Fallback',sans-serif;font-size:17px;fill:#1e293b}.s{font-family:'Droid Sans Fallback',sans-serif;font-size:15px;fill:#475569}.b{font-family:'DejaVu Sans Mono',monospace;font-size:18px;font-weight:700;fill:#fff}</style>
+  <text x="650" y="48" text-anchor="middle" class="title">推理引擎的两个控制平面：KV 内存管理与 Token 调度</text>
+  <rect x="55" y="85" width="555" height="70" rx="14" fill="#2563eb"/><text x="332" y="128" text-anchor="middle" class="h">内存平面：Paged KV Cache</text>
+  <rect x="690" y="85" width="555" height="70" rx="14" fill="#7c3aed"/><text x="967" y="128" text-anchor="middle" class="h">调度平面：Iteration-level Scheduling</text>
+  <g transform="translate(55,185)">
+    <rect width="555" height="420" rx="16" fill="#dbeafe" stroke="#93c5fd" stroke-width="2"/>
+    <text x="28" y="42" class="t">逻辑块</text>
+    <g transform="translate(140,18)"><rect width="72" height="54" rx="7" fill="#2563eb"/><text x="36" y="34" text-anchor="middle" class="b">L0</text><rect x="82" width="72" height="54" rx="7" fill="#2563eb"/><text x="118" y="34" text-anchor="middle" class="b">L1</text><rect x="164" width="72" height="54" rx="7" fill="#2563eb"/><text x="200" y="34" text-anchor="middle" class="b">L2</text></g>
+    <text x="28" y="128" class="t">块表</text><rect x="140" y="92" width="235" height="55" rx="8" fill="#fff" stroke="#60a5fa"/><text x="257" y="126" text-anchor="middle" class="t">[ 6, 1, 9 ]</text>
+    <text x="28" y="208" class="t">物理块池</text>
+    <g transform="translate(140,170)"><rect width="58" height="50" rx="6" fill="#93c5fd"/><text x="29" y="31" text-anchor="middle" class="t">0</text><rect x="67" width="58" height="50" rx="6" fill="#1d4ed8"/><text x="96" y="31" text-anchor="middle" class="b">1</text><rect x="134" width="58" height="50" rx="6" fill="#93c5fd"/><text x="163" y="31" text-anchor="middle" class="t">2</text><rect x="201" width="58" height="50" rx="6" fill="#93c5fd"/><text x="230" y="31" text-anchor="middle" class="t">…</text><rect x="268" width="58" height="50" rx="6" fill="#1d4ed8"/><text x="297" y="31" text-anchor="middle" class="b">6</text><rect x="335" width="58" height="50" rx="6" fill="#1d4ed8"/><text x="364" y="31" text-anchor="middle" class="b">9</text></g>
+    <line x1="176" y1="72" x2="436" y2="170" stroke="#2563eb" stroke-width="2" stroke-dasharray="6 5"/>
+    <text x="277" y="275" text-anchor="middle" class="t">共享机制：引用计数 + Copy-on-Write</text>
+    <text x="277" y="312" text-anchor="middle" class="s">Prefix Cache 复用已计算的前缀块</text>
+    <text x="277" y="342" text-anchor="middle" class="s">请求结束后，空闲块按 LRU 等策略淘汰</text>
+    <text x="277" y="382" text-anchor="middle" class="s">目标：减少预留、外部碎片和重复 Prefill</text>
+  </g>
+  <g transform="translate(690,185)">
+    <rect width="555" height="420" rx="16" fill="#ede9fe" stroke="#c4b5fd" stroke-width="2"/>
+    <rect x="32" y="30" width="190" height="62" rx="10" fill="#a78bfa"/><text x="127" y="68" text-anchor="middle" class="h">Waiting Queue</text>
+    <rect x="333" y="30" width="190" height="62" rx="10" fill="#7c3aed"/><text x="428" y="68" text-anchor="middle" class="h">Running Queue</text>
+    <path d="M222 61 H322" stroke="#64748b" stroke-width="4" marker-end="url(#arrow)"/>
+    <defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#64748b"/></marker></defs>
+    <rect x="85" y="135" width="385" height="135" rx="14" fill="#fff" stroke="#a78bfa" stroke-width="2"/>
+    <text x="277" y="170" text-anchor="middle" class="t">每轮调度：统一 Token Budget</text>
+    <text x="277" y="204" text-anchor="middle" class="s">Decode Token + 新 Prefill + Chunked Prefill</text>
+    <text x="277" y="235" text-anchor="middle" class="s">完成请求退出，新请求立即补入</text>
+    <rect x="85" y="300" width="385" height="78" rx="12" fill="#ddd6fe"/>
+    <text x="277" y="332" text-anchor="middle" class="t">资源不足：等待、抢占、重计算或换出</text>
+    <text x="277" y="360" text-anchor="middle" class="s">目标：在 TTFT、TPOT、吞吐和公平性之间取舍</text>
+  </g>
+  <rect x="375" y="635" width="550" height="60" rx="14" fill="#0f172a"/><text x="650" y="673" text-anchor="middle" class="h">分页让动态调度可行；动态调度把节省的显存转化为吞吐</text>
+</svg>

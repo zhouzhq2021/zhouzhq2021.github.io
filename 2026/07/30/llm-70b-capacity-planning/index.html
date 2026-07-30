@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang=en>
+<head>
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, minimal-ui">
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="Cache-Control" content="no-transform" />
+  <meta http-equiv="Cache-Control" content="no-siteapp" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="format-detection" content="telephone=no,email=no,adress=no">
+  <!-- Color theme for statusbar -->
+  <meta name="theme-color" content="#000000" />
+  <!-- 强制页面在当前窗口以独立页面显示,防止别人在框架里调用页面 -->
+  <meta http-equiv="window-target" content="_top" />
+  
+  
+  <title>70B 大模型推理服务的容量规划与性能设计 | Zhongquan Zhou&#39;s Blog</title>
+  <meta name="description" content="很多 AI Infra 面试题彼此看似独立：计算 KV Cache、解释张量并行、分析 Decode 瓶颈、选择量化方案、设计压测指标、排查 OOM。放到真实部署里，它们其实是同一道综合题的不同步骤。 本文设定一个具体任务：使用 8 张 H100 80GB 部署一个 70B、GQA、BF16 的 Decoder-only 模型，并满足在线聊天业务的延迟目标。我们不会寻找唯一答案，而是展示一套可以复">
+<meta property="og:type" content="article">
+<meta property="og:title" content="70B 大模型推理服务的容量规划与性能设计">
+<meta property="og:url" content="https://zhouzhq2021.github.io/2026/07/30/llm-70b-capacity-planning/index.html">
+<meta property="og:site_name" content="Zhongquan Zhou&#39;s Blog">
+<meta property="og:description" content="很多 AI Infra 面试题彼此看似独立：计算 KV Cache、解释张量并行、分析 Decode 瓶颈、选择量化方案、设计压测指标、排查 OOM。放到真实部署里，它们其实是同一道综合题的不同步骤。 本文设定一个具体任务：使用 8 张 H100 80GB 部署一个 70B、GQA、BF16 的 Decoder-only 模型，并满足在线聊天业务的延迟目标。我们不会寻找唯一答案，而是展示一套可以复">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ai-infra-series/capacity-planning-flow.svg">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ai-infra-series/memory-ledger.svg">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ai-infra-series/parallel-topology.svg">
+<meta property="article:published_time" content="2026-07-30T03:00:00.000Z">
+<meta property="article:modified_time" content="2026-07-30T03:24:28.830Z">
+<meta property="article:author" content="Zhongquan Zhou">
+<meta property="article:tag" content="AI Infra">
+<meta property="article:tag" content="AI Infra Engineering Series">
+<meta property="article:tag" content="Capacity Planning">
+<meta property="article:tag" content="LLM Serving">
+<meta property="article:tag" content="Benchmark">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://zhouzhq2021.github.io/images/posts/ai-infra-series/capacity-planning-flow.svg">
+  <!-- Canonical links -->
+  <link rel="canonical" href="https://zhouzhq2021.github.io/2026/07/30/llm-70b-capacity-planning/index.html">
+  
+    <link rel="alternate" href="/atom.xml" title="Zhongquan Zhou&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+  
+  
+    <link href="//cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.3.5/dist/jquery.fancybox.min.css" rel="stylesheet">
+  
+  
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1.4.0/dist/gitalk.min.css">
+  
+  <link rel="stylesheet" type="text/css" href="/css/custom.css">
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body class="main-center" itemscope itemtype="http://schema.org/WebPage">
+  <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+  <div class="slimContent">
+    <div class="navbar-header">
+      
+      
+      <div class="profile-block text-center">
+        <a id="avatar" href="https://github.com/zhouzhq2021" target="_blank">
+          <img class="img-circle img-rotate" src="/images/avatar-20260605.jpg" width="200" height="200">
+        </a>
+        <h2 id="name" class="hidden-xs hidden-sm">Zhongquan Zhou</h2>
+        <h3 id="title" class="hidden-xs hidden-sm hidden-md">Computer Science Graduate Student @ Shanghai Jiao Tong University</h3>
+        <small id="location" class="text-muted hidden-xs hidden-sm"><i class="icon icon-map-marker"></i> Shanghai, China</small>
+      </div>
+      
+      <div class="search" id="search-form-wrap">
+
+    <form class="search-form sidebar-form">
+        <div class="input-group">
+            <input type="text" class="search-form-input form-control" placeholder="Search" />
+            <span class="input-group-btn">
+                <button type="submit" class="search-form-submit btn btn-flat" onclick="return false;"><i class="icon icon-search"></i></button>
+            </span>
+        </div>
+    </form>
+    <div class="ins-search">
+  <div class="ins-search-mask"></div>
+  <div class="ins-search-container">
+    <div class="ins-input-wrapper">
+      <input type="text" class="ins-search-input" placeholder="Type something..." x-webkit-speech />
+      <button type="button" class="close ins-close ins-selectable" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">×</span></button>
+    </div>
+    <div class="ins-section-wrapper">
+      <div class="ins-section-container"></div>
+    </div>
+  </div>
+</div>
+
+
+</div>
+      <button class="navbar-toggle collapsed" type="button" data-toggle="collapse" data-target="#main-navbar" aria-controls="main-navbar" aria-expanded="false">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+    </div>
+    <nav id="main-navbar" class="collapse navbar-collapse" itemscope itemtype="http://schema.org/SiteNavigationElement" role="navigation">
+      <ul class="nav navbar-nav main-nav menu-highlight">
+        
+        
+        <li class="menu-item menu-item-home">
+          <a href="/.">
+            
+            <i class="icon icon-home-fill"></i>
+            
+            <span class="menu-title">Home</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories">
+            
+            <i class="icon icon-folder"></i>
+            
+            <span class="menu-title">Categories</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags">
+            
+            <i class="icon icon-tags"></i>
+            
+            <span class="menu-title">Tags</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-repository">
+          <a href="/repository">
+            
+            <i class="icon icon-project"></i>
+            
+            <span class="menu-title">Repository</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-books">
+          <a href="/books">
+            
+            <i class="icon icon-book-fill"></i>
+            
+            <span class="menu-title">Books</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-links">
+          <a href="/links">
+            
+            <i class="icon icon-friendship"></i>
+            
+            <span class="menu-title">Links</span>
+          </a>
+        </li>
+        
+      </ul>
+      
+	
+    <ul class="social-links">
+    	
+        <li><a href="https://github.com/zhouzhq2021" target="_blank" title="Github" data-toggle=tooltip data-placement=top><i class="icon icon-github"></i></a></li>
+        
+        <li><a href="mailto:zhouzhq2021@sjtu.edu.cn" target="_blank" title="Email" data-toggle=tooltip data-placement=top><i class="icon icon-email"></i></a></li>
+        
+        <li><a href="/atom.xml" target="_blank" title="Rss" data-toggle=tooltip data-placement=top><i class="icon icon-rss"></i></a></li>
+        
+    </ul>
+
+    </nav>
+  </div>
+</header>
+
+  
+    <aside class="sidebar" itemscope itemtype="http://schema.org/WPSideBar">
+  <div class="slimContent">
+    
+      <div class="widget">
+    <h3 class="widget-title">Board</h3>
+    <div class="widget-body">
+        <div id="board">
+            <div class="content">
+                <p>Welcome to my personal blog! Feel free to explore and share your thoughts!</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Contact</h3>
+    <div class="widget-body">
+      <ul class="sidebar-simple-list">
+        
+          
+          <li>
+            <span class="sidebar-contact-label">Email</span>
+            
+              <a href="mailto:zhouzhq2021@sjtu.edu.cn">zhouzhq2021@sjtu.edu.cn</a>
+            
+          </li>
+        
+          
+          <li>
+            <span class="sidebar-contact-label">GitHub</span>
+            
+              <a href="https://github.com/zhouzhq2021" target="_blank">github.com/zhouzhq2021</a>
+            
+          </li>
+        
+          
+          <li>
+            <span class="sidebar-contact-label">Location</span>
+            
+              <span>Shanghai, China</span>
+            
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Categories</h3>
+    <div class="widget-body">
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/AI-Infrastructure/">AI Infrastructure</a><span class="category-list-count">7</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/Cloud-Computing-and-Big-Data/">Cloud Computing and Big Data</a><span class="category-list-count">4</span></li></ul>
+    </div>
+  </div>
+
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Tags</h3>
+    <div class="widget-body">
+      <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/AI-Infra/" rel="tag">AI Infra</a><span class="tag-list-count">7</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/AI-Infra-Engineering-Series/" rel="tag">AI Infra Engineering Series</a><span class="tag-list-count">7</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Benchmark/" rel="tag">Benchmark</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/CUDA/" rel="tag">CUDA</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Capacity-Planning/" rel="tag">Capacity Planning</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Ceph/" rel="tag">Ceph</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Distributed-Training/" rel="tag">Distributed Training</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/FSDP/" rel="tag">FSDP</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/FlashAttention/" rel="tag">FlashAttention</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/GPU-Memory/" rel="tag">GPU Memory</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Hadoop/" rel="tag">Hadoop</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Kubernetes/" rel="tag">Kubernetes</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/LLM-Inference/" rel="tag">LLM Inference</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/LLM-Serving/" rel="tag">LLM Serving</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/NCCL/" rel="tag">NCCL</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Nsight/" rel="tag">Nsight</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Numerical-Stability/" rel="tag">Numerical Stability</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/OpenStack/" rel="tag">OpenStack</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/PagedAttention/" rel="tag">PagedAttention</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Performance-Profiling/" rel="tag">Performance Profiling</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Softmax/" rel="tag">Softmax</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Transformer/" rel="tag">Transformer</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/vLLM/" rel="tag">vLLM</a><span class="tag-list-count">2</span></li></ul>
+    </div>
+  </div>
+
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Tag Cloud</h3>
+    <div class="widget-body tagcloud">
+      <a href="/tags/AI-Infra/" style="font-size: 14px;">AI Infra</a> <a href="/tags/AI-Infra-Engineering-Series/" style="font-size: 14px;">AI Infra Engineering Series</a> <a href="/tags/Benchmark/" style="font-size: 13px;">Benchmark</a> <a href="/tags/CUDA/" style="font-size: 13px;">CUDA</a> <a href="/tags/Capacity-Planning/" style="font-size: 13px;">Capacity Planning</a> <a href="/tags/Ceph/" style="font-size: 13px;">Ceph</a> <a href="/tags/Distributed-Training/" style="font-size: 13.5px;">Distributed Training</a> <a href="/tags/FSDP/" style="font-size: 13px;">FSDP</a> <a href="/tags/FlashAttention/" style="font-size: 13px;">FlashAttention</a> <a href="/tags/GPU-Memory/" style="font-size: 13px;">GPU Memory</a> <a href="/tags/Hadoop/" style="font-size: 13px;">Hadoop</a> <a href="/tags/Kubernetes/" style="font-size: 13px;">Kubernetes</a> <a href="/tags/LLM-Inference/" style="font-size: 13.5px;">LLM Inference</a> <a href="/tags/LLM-Serving/" style="font-size: 13.5px;">LLM Serving</a> <a href="/tags/NCCL/" style="font-size: 13px;">NCCL</a> <a href="/tags/Nsight/" style="font-size: 13px;">Nsight</a> <a href="/tags/Numerical-Stability/" style="font-size: 13px;">Numerical Stability</a> <a href="/tags/OpenStack/" style="font-size: 13px;">OpenStack</a> <a href="/tags/PagedAttention/" style="font-size: 13px;">PagedAttention</a> <a href="/tags/Performance-Profiling/" style="font-size: 13px;">Performance Profiling</a> <a href="/tags/Softmax/" style="font-size: 13px;">Softmax</a> <a href="/tags/Transformer/" style="font-size: 13px;">Transformer</a> <a href="/tags/vLLM/" style="font-size: 13.5px;">vLLM</a>
+    </div>
+  </div>
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Archive</h3>
+    <div class="widget-body">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2026/07/">July 2026</a><span class="archive-list-count">7</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2024/06/">June 2024</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2024/05/">May 2024</a><span class="archive-list-count">2</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2024/04/">April 2024</a><span class="archive-list-count">1</span></li></ul>
+    </div>
+  </div>
+
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget-body">
+      <ul class="recent-post-list list-unstyled ">
+        
+          <li>
+            
+            <div class="item-thumb">
+              <a href="/2026/07/30/llm-70b-capacity-planning/" class="thumb">
+    
+    
+        <span class="thumb-image thumb-none"></span>
+    
+</a>
+
+            </div>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/AI-Infrastructure/">AI Infrastructure</a>
+              </p>
+              <p class="item-title">
+                <a href="/2026/07/30/llm-70b-capacity-planning/" class="title">70B 大模型推理服务的容量规划与性能设计</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2026-07-30T03:00:00.000Z" itemprop="datePublished">2026-07-30</time>
+              </p>
+            </div>
+          </li>
+          
+          <li>
+            
+            <div class="item-thumb">
+              <a href="/2026/07/30/numerical-stability-to-flashattention/" class="thumb">
+    
+    
+        <span class="thumb-image thumb-none"></span>
+    
+</a>
+
+            </div>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/AI-Infrastructure/">AI Infrastructure</a>
+              </p>
+              <p class="item-title">
+                <a href="/2026/07/30/numerical-stability-to-flashattention/" class="title">Softmax 数值稳定性与 IO-Aware Attention：从在线归一化到 FlashAttention</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2026-07-30T02:50:00.000Z" itemprop="datePublished">2026-07-30</time>
+              </p>
+            </div>
+          </li>
+          
+          <li>
+            
+            <div class="item-thumb">
+              <a href="/2026/07/30/distributed-training-from-allreduce/" class="thumb">
+    
+    
+        <span class="thumb-image thumb-none"></span>
+    
+</a>
+
+            </div>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/AI-Infrastructure/">AI Infrastructure</a>
+              </p>
+              <p class="item-title">
+                <a href="/2026/07/30/distributed-training-from-allreduce/" class="title">分布式训练的通信模型：从集合通信到多维并行</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2026-07-30T02:40:00.000Z" itemprop="datePublished">2026-07-30</time>
+              </p>
+            </div>
+          </li>
+          
+          <li>
+            
+            <div class="item-thumb">
+              <a href="/2026/07/30/llm-serving-as-operating-system/" class="thumb">
+    
+    
+        <span class="thumb-image thumb-none"></span>
+    
+</a>
+
+            </div>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/AI-Infrastructure/">AI Infrastructure</a>
+              </p>
+              <p class="item-title">
+                <a href="/2026/07/30/llm-serving-as-operating-system/" class="title">LLM 推理引擎的内存管理与调度：PagedAttention、Prefix Cache 与 Continuous Batching</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2026-07-30T02:30:00.000Z" itemprop="datePublished">2026-07-30</time>
+              </p>
+            </div>
+          </li>
+          
+          <li>
+            
+            <div class="item-thumb">
+              <a href="/2026/07/30/ai-infra-roofline-profiling/" class="thumb">
+    
+    
+        <span class="thumb-image thumb-none"></span>
+    
+</a>
+
+            </div>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/AI-Infrastructure/">AI Infrastructure</a>
+              </p>
+              <p class="item-title">
+                <a href="/2026/07/30/ai-infra-roofline-profiling/" class="title">GPU 性能分析方法：Roofline 模型、CUDA 内存层次与 Nsight</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2026-07-30T02:20:00.000Z" itemprop="datePublished">2026-07-30</time>
+              </p>
+            </div>
+          </li>
+          
+      </ul>
+    </div>
+  </div>
+  
+
+    
+  </div>
+</aside>
+
+  
+  
+<main class="main" role="main">
+  <div class="content">
+  <article id="post-llm-70b-capacity-planning" class="article article-type-post" itemscope itemtype="http://schema.org/BlogPosting">
+    
+    <div class="article-header">
+      
+        
+  
+    <h1 class="article-title" itemprop="name">
+      70B 大模型推理服务的容量规划与性能设计
+    </h1>
+  
+
+      
+      <div class="article-meta">
+        <span class="article-date">
+    <i class="icon icon-calendar-check"></i>
+	<a href="/2026/07/30/llm-70b-capacity-planning/" class="article-date">
+	  <time datetime="2026-07-30T03:00:00.000Z" itemprop="datePublished">2026-07-30</time>
+	</a>
+</span>
+        
+  <span class="article-category">
+    <i class="icon icon-folder"></i>
+    <a class="article-category-link" href="/categories/AI-Infrastructure/">AI Infrastructure</a>
+  </span>
+
+        
+  <span class="article-tag">
+    <i class="icon icon-tags"></i>
+	<a class="article-tag-link-link" href="/tags/AI-Infra/" rel="tag">AI Infra</a>, <a class="article-tag-link-link" href="/tags/AI-Infra-Engineering-Series/" rel="tag">AI Infra Engineering Series</a>, <a class="article-tag-link-link" href="/tags/Benchmark/" rel="tag">Benchmark</a>, <a class="article-tag-link-link" href="/tags/Capacity-Planning/" rel="tag">Capacity Planning</a>, <a class="article-tag-link-link" href="/tags/LLM-Serving/" rel="tag">LLM Serving</a>
+  </span>
+
+
+        
+	<span class="article-read hidden-xs">
+	    <i class="icon icon-eye-fill" aria-hidden="true"></i>
+	    <span id="busuanzi_container_page_pv">
+			<span id="busuanzi_value_page_pv">0</span>
+		</span>
+	</span>
+
+
+        
+        
+	
+		<span class="post-wordcount hidden-xs" itemprop="wordCount">Word Count: 4k(words)</span>
+	
+	
+		<span class="post-readcount hidden-xs" itemprop="timeRequired">Read Count: 15(minutes)</span>
+	
+
+      </div>
+    </div>
+    <div class="article-entry marked-body" itemprop="articleBody">
+      
+        <p>很多 AI Infra 面试题彼此看似独立：计算 KV Cache、解释张量并行、分析 Decode 瓶颈、选择量化方案、设计压测指标、排查 OOM。放到真实部署里，它们其实是同一道综合题的不同步骤。</p>
+<p>本文设定一个具体任务：使用 8 张 H100 80GB 部署一个 70B、GQA、BF16 的 Decoder-only 模型，并满足在线聊天业务的延迟目标。我们不会寻找唯一答案，而是展示一套可以复用的决策过程。</p>
+<p><img src="/images/posts/ai-infra-series/capacity-planning-flow.svg" alt="大模型推理服务容量规划闭环" /></p>
+<p><em>图 1：容量规划不是一次显存除法，而是负载、资源、压测、归因和上线门禁构成的闭环。</em></p>
+<p>这里的“容量”不是一个数字，而是一个约束向量：</p>
+<p class='katex-block'><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>C</mi><mi>a</mi><mi>p</mi><mi>a</mi><mi>c</mi><mi>i</mi><mi>t</mi><mi>y</mi><mo>=</mo><mo stretchy="false">(</mo><mtext>显存</mtext><mo separator="true">,</mo><mtext>HBM 带宽</mtext><mo separator="true">,</mo><mtext>计算吞吐</mtext><mo separator="true">,</mo><mtext>互联</mtext><mo separator="true">,</mo><mtext>并发</mtext><mo separator="true">,</mo><mtext>SLO</mtext><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">Capacity=(\text{显存},\text{HBM 带宽},\text{计算吞吐},\text{互联},\text{并发},\text{SLO})
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8777699999999999em;vertical-align:-0.19444em;"></span><span class="mord mathnormal" style="margin-right:0.07153em;">C</span><span class="mord mathnormal">a</span><span class="mord mathnormal">p</span><span class="mord mathnormal">a</span><span class="mord mathnormal">c</span><span class="mord mathnormal">i</span><span class="mord mathnormal">t</span><span class="mord mathnormal" style="margin-right:0.03588em;">y</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">(</span><span class="mord text"><span class="mord cjk_fallback">显存</span></span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.16666666666666666em;"></span><span class="mord text"><span class="mord">HBM </span><span class="mord cjk_fallback">带宽</span></span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.16666666666666666em;"></span><span class="mord text"><span class="mord cjk_fallback">计算吞吐</span></span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.16666666666666666em;"></span><span class="mord text"><span class="mord cjk_fallback">互联</span></span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.16666666666666666em;"></span><span class="mord text"><span class="mord cjk_fallback">并发</span></span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.16666666666666666em;"></span><span class="mord text"><span class="mord">SLO</span></span><span class="mclose">)</span></span></span></span></span></p>
+<p>某个方案可能容纳更多请求，却因为 TPOT 超标而没有更高有效容量；另一个方案可能单请求延迟很低，却因 KV Cache 太小无法承受流量峰值。本文后续所有比较都以 Goodput 为最终尺度，而不是孤立的显存占用或 Tokens/s。</p>
+<h2 id="一-需求不能只写部署-70b"><a class="markdownIt-Anchor" href="#一-需求不能只写部署-70b"></a> 一、需求不能只写“部署 70B”</h2>
+<p>假设业务提供以下信息：</p>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>假设值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>模型</td>
+<td>70B Decoder-only，80 层</td>
+</tr>
+<tr>
+<td>隐藏维度</td>
+<td>8192</td>
+</tr>
+<tr>
+<td>Query/KV Heads</td>
+<td>64 / 8</td>
+</tr>
+<tr>
+<td>Head Dimension</td>
+<td>128</td>
+</tr>
+<tr>
+<td>权重精度</td>
+<td>BF16</td>
+</tr>
+<tr>
+<td>GPU</td>
+<td>8 × H100 80GB，单机 NVLink</td>
+</tr>
+<tr>
+<td>Prompt P50/P99</td>
+<td>2K / 16K Token</td>
+</tr>
+<tr>
+<td>平均输出</td>
+<td>500 Token</td>
+</tr>
+<tr>
+<td>TTFT SLO</td>
+<td>P95 小于 2 秒，示例目标</td>
+</tr>
+<tr>
+<td>TPOT SLO</td>
+<td>P95 小于 60 ms，示例目标</td>
+</tr>
+</tbody>
+</table>
+<p>这些 SLO 只是演示。真实项目应根据交互产品、离线任务或 Agent 工作流重新定义。</p>
+<p>还需要补齐：</p>
+<ul>
+<li>到达率和峰值并发；</li>
+<li>Prompt 长度的完整分布；</li>
+<li>系统 Prompt 是否大量重复；</li>
+<li>是否要求多模型或 Multi-LoRA；</li>
+<li>单机故障时是否允许降级；</li>
+<li>成本、功耗和可用区约束。</li>
+</ul>
+<h3 id="11-从到达率估算活跃请求数"><a class="markdownIt-Anchor" href="#11-从到达率估算活跃请求数"></a> 1.1 从到达率估算活跃请求数</h3>
+<p>容量规划经常直接假设“并发 64”，却没有解释这个数字来自哪里。稳定系统中可以先用 Little’s Law 建立近似：</p>
+<p class='katex-block'><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>C</mi><mo>≈</mo><mi>λ</mi><mo>×</mo><mi>E</mi><mo stretchy="false">[</mo><mi>T</mi><mo stretchy="false">]</mo></mrow><annotation encoding="application/x-tex">C\approx\lambda\times E[T]
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord mathnormal" style="margin-right:0.07153em;">C</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">≈</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:0.77777em;vertical-align:-0.08333em;"></span><span class="mord mathnormal">λ</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.05764em;">E</span><span class="mopen">[</span><span class="mord mathnormal" style="margin-right:0.13889em;">T</span><span class="mclose">]</span></span></span></span></span></p>
+<p><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>λ</mi></mrow><annotation encoding="application/x-tex">\lambda</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.69444em;vertical-align:0em;"></span><span class="mord mathnormal">λ</span></span></span></span> 是每秒到达请求数，<span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>E</mi><mo stretchy="false">[</mo><mi>T</mi><mo stretchy="false">]</mo></mrow><annotation encoding="application/x-tex">E[T]</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.05764em;">E</span><span class="mopen">[</span><span class="mord mathnormal" style="margin-right:0.13889em;">T</span><span class="mclose">]</span></span></span></span> 是请求从进入到完成的平均驻留时间，<span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>C</mi></mrow><annotation encoding="application/x-tex">C</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord mathnormal" style="margin-right:0.07153em;">C</span></span></span></span> 是系统中的平均活跃请求数。例如到达率 8 req/s、平均完成时间 6s，平均活跃请求约为 48。突发流量和长尾会让瞬时值更高，因此还需结合 P95/P99 和排队上限。</p>
+<p>把并发与业务流量联系起来后，KV Cache 预算才不只是人为选择的压测参数。</p>
+<h2 id="二-第一步权重能否装下"><a class="markdownIt-Anchor" href="#二-第一步权重能否装下"></a> 二、第一步：权重能否装下</h2>
+<p><img src="/images/posts/ai-infra-series/memory-ledger.svg" alt="训练与推理显存状态模型" /></p>
+<p><em>图 2：部署容量规划只使用右侧推理账本，但量化和并行选择仍要明确权重、KV 与运行时空间的边界。</em></p>
+<p>70B BF16 权重的理论大小约为：</p>
+<p class='katex-block'><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mn>70</mn><mo>×</mo><mn>1</mn><msup><mn>0</mn><mn>9</mn></msup><mo>×</mo><mn>2</mn><mtext> Bytes</mtext><mo>≈</mo><mn>140</mn><mtext> GB</mtext></mrow><annotation encoding="application/x-tex">70\times10^9\times2\text{ Bytes}\approx140\text{ GB}
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.72777em;vertical-align:-0.08333em;"></span><span class="mord">7</span><span class="mord">0</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:0.9474379999999999em;vertical-align:-0.08333em;"></span><span class="mord">1</span><span class="mord"><span class="mord">0</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641079999999999em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">9</span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:0.8777699999999999em;vertical-align:-0.19444em;"></span><span class="mord">2</span><span class="mord text"><span class="mord"> Bytes</span></span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">≈</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord">1</span><span class="mord">4</span><span class="mord">0</span><span class="mord text"><span class="mord"> GB</span></span></span></span></span></span></p>
+<p>使用 TP=8 时，理想情况下每张卡约承担 17.5GB 权重。实际还会包含：</p>
+<ul>
+<li>未均匀切分或复制的参数；</li>
+<li>CUDA Context；</li>
+<li>NCCL Buffer；</li>
+<li>Attention 和 GEMM Workspace；</li>
+<li>CUDA Graph；</li>
+<li>KV Cache；</li>
+<li>框架分配器保留空间。</li>
+</ul>
+<p>因此，权重能装下不是瓶颈终点，而只是说明 TP=8 在容量上可行。</p>
+<h3 id="21-是否需要-int8-或-int4"><a class="markdownIt-Anchor" href="#21-是否需要-int8-或-int4"></a> 2.1 是否需要 INT8 或 INT4</h3>
+<p>如果 BF16 已经为 KV Cache 留出足够空间，量化不一定是第一步。Weight-only 量化可能减少 Decode 读取权重的带宽并提高单机容量，但要确认：</p>
+<ul>
+<li>目标 GPU 和推理框架是否有成熟 Kernel；</li>
+<li>模型精度是否满足业务要求；</li>
+<li>Prefill 是否因反量化或 Kernel 形状变慢；</li>
+<li>TP 下量化元数据如何切分；</li>
+<li>长上下文业务的主要瓶颈究竟是权重还是 KV Cache。</li>
+</ul>
+<p>技术选型应该由 Benchmark 决定，而不是由“位宽更低”直接决定。</p>
+<h2 id="三-第二步kv-cache-才是并发上限的关键"><a class="markdownIt-Anchor" href="#三-第二步kv-cache-才是并发上限的关键"></a> 三、第二步：KV Cache 才是并发上限的关键</h2>
+<p>KV Cache 每 Token 大小为：</p>
+<p class='katex-block'><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mn>2</mn><mi>L</mi><msub><mi>H</mi><mrow><mi>k</mi><mi>v</mi></mrow></msub><msub><mi>d</mi><mi>h</mi></msub><mi>b</mi></mrow><annotation encoding="application/x-tex">2LH_{kv}d_hb
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.84444em;vertical-align:-0.15em;"></span><span class="mord">2</span><span class="mord mathnormal">L</span><span class="mord"><span class="mord mathnormal" style="margin-right:0.08125em;">H</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.33610799999999996em;"><span style="top:-2.5500000000000003em;margin-left:-0.08125em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.03148em;">k</span><span class="mord mathnormal mtight" style="margin-right:0.03588em;">v</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mord"><span class="mord mathnormal">d</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.33610799999999996em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">h</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mord mathnormal">b</span></span></span></span></span></p>
+<p>代入 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>L</mi><mo>=</mo><mn>80</mn></mrow><annotation encoding="application/x-tex">L=80</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord mathnormal">L</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:0.64444em;vertical-align:0em;"></span><span class="mord">8</span><span class="mord">0</span></span></span></span>、<span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>H</mi><mrow><mi>k</mi><mi>v</mi></mrow></msub><mo>=</mo><mn>8</mn></mrow><annotation encoding="application/x-tex">H_{kv}=8</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.83333em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.08125em;">H</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.33610799999999996em;"><span style="top:-2.5500000000000003em;margin-left:-0.08125em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.03148em;">k</span><span class="mord mathnormal mtight" style="margin-right:0.03588em;">v</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:0.64444em;vertical-align:0em;"></span><span class="mord">8</span></span></span></span>、<span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>d</mi><mi>h</mi></msub><mo>=</mo><mn>128</mn></mrow><annotation encoding="application/x-tex">d_h=128</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.84444em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal">d</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.33610799999999996em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">h</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:0.64444em;vertical-align:0em;"></span><span class="mord">1</span><span class="mord">2</span><span class="mord">8</span></span></span></span>、BF16 的 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>b</mi><mo>=</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">b=2</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.69444em;vertical-align:0em;"></span><span class="mord mathnormal">b</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:0.64444em;vertical-align:0em;"></span><span class="mord">2</span></span></span></span>：</p>
+<p class='katex-block'><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mn>2</mn><mo>×</mo><mn>80</mn><mo>×</mo><mn>8</mn><mo>×</mo><mn>128</mn><mo>×</mo><mn>2</mn><mo>=</mo><mn>327680</mn><mtext> Bytes</mtext></mrow><annotation encoding="application/x-tex">2\times80\times8\times128\times2=327680\text{ Bytes}
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.72777em;vertical-align:-0.08333em;"></span><span class="mord">2</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:0.72777em;vertical-align:-0.08333em;"></span><span class="mord">8</span><span class="mord">0</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:0.72777em;vertical-align:-0.08333em;"></span><span class="mord">8</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:0.72777em;vertical-align:-0.08333em;"></span><span class="mord">1</span><span class="mord">2</span><span class="mord">8</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:0.64444em;vertical-align:0em;"></span><span class="mord">2</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:0.8777699999999999em;vertical-align:-0.19444em;"></span><span class="mord">3</span><span class="mord">2</span><span class="mord">7</span><span class="mord">6</span><span class="mord">8</span><span class="mord">0</span><span class="mord text"><span class="mord"> Bytes</span></span></span></span></span></span></p>
+<p>即整个模型每个 Token 约 320 KiB KV Cache。</p>
+<p>如果 KV Head 能随 TP=8 均匀切分，每卡约承担八分之一，也就是约 40 KiB/Token。具体布局仍应以引擎和 Attention Backend 的实现为准。</p>
+<h3 id="31-平均负载和最坏负载不同"><a class="markdownIt-Anchor" href="#31-平均负载和最坏负载不同"></a> 3.1 平均负载和最坏负载不同</h3>
+<p>若 64 个并发请求平均已经缓存 2500 Token，总 KV Cache 约为：</p>
+<p class='katex-block'><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mn>64</mn><mo>×</mo><mn>2500</mn><mo>×</mo><mn>320</mn><mtext> KiB</mtext><mo>≈</mo><mn>48.8</mn><mtext> GiB</mtext></mrow><annotation encoding="application/x-tex">64\times2500\times320\text{ KiB}\approx48.8\text{ GiB}
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.72777em;vertical-align:-0.08333em;"></span><span class="mord">6</span><span class="mord">4</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:0.72777em;vertical-align:-0.08333em;"></span><span class="mord">2</span><span class="mord">5</span><span class="mord">0</span><span class="mord">0</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord">3</span><span class="mord">2</span><span class="mord">0</span><span class="mord text"><span class="mord"> KiB</span></span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">≈</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord">4</span><span class="mord">8</span><span class="mord">.</span><span class="mord">8</span><span class="mord text"><span class="mord"> GiB</span></span></span></span></span></span></p>
+<p>分到 8 张卡约 6.1 GiB/卡，看起来很轻松。</p>
+<p>但如果 64 个请求同时接近 16K Prompt，并继续输出 500 Token，总 KV Cache 会超过 300 GiB，单卡分片也可能超过 40 GiB。再考虑权重、Workspace 和运行时空间，容量压力会明显上升。</p>
+<p>因此不能用 P50 Prompt 推导最大并发，也不能简单用 P99 长度假设所有请求同时达到最坏值。需要用真实分布做 Trace Replay 或概率模型。</p>
+<h2 id="四-第三步确定并行方式"><a class="markdownIt-Anchor" href="#四-第三步确定并行方式"></a> 四、第三步：确定并行方式</h2>
+<p><img src="/images/posts/ai-infra-series/parallel-topology.svg" alt="两节点多维并行拓扑示意" /></p>
+<p><em>图 3：本文场景是单机 8 卡，TP 通信位于 NVLink 域；扩展到多机时，应避免把高频 TP Collective 直接放到慢速跨机链路。</em></p>
+<p>单机 8 卡 NVLink 环境下，TP=8 是直观起点：</p>
+<ul>
+<li>权重均匀分片；</li>
+<li>层内通信留在高速 NVLink 域；</li>
+<li>不引入 Pipeline Bubble；</li>
+<li>一个模型副本可以使用全部 GPU。</li>
+</ul>
+<p>但它也有代价：</p>
+<ul>
+<li>每个 Transformer 层都有 TP 通信；</li>
+<li>小 Batch 下通信和 Launch 占比可能较高；</li>
+<li>单个副本占用全部 GPU，故障域较大；</li>
+<li>扩容粒度是整套 8 卡实例。</li>
+</ul>
+<p>如果量化后模型可以用 TP=4，可能在一台 8 卡机器上部署两个副本，以数据并行方式处理不同请求。此时总吞吐、尾延迟和故障隔离可能更好，但单请求可用 KV Cache、单副本最长上下文和量化精度需要重新评估。</p>
+<p>所以要比较的不是“TP=4 还是 TP=8 哪个更先进”，而是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">一个 TP=8 大副本</span><br><span class="line">vs</span><br><span class="line">两个 TP=4 小副本</span><br></pre></td></tr></table></figure>
+<p>在真实请求分布下，哪个获得更高 Goodput。</p>
+<h2 id="五-第四步配置-kv-cache-与调度器"><a class="markdownIt-Anchor" href="#五-第四步配置-kv-cache-与调度器"></a> 五、第四步：配置 KV Cache 与调度器</h2>
+<h3 id="51-gpu_memory_utilization"><a class="markdownIt-Anchor" href="#51-gpu_memory_utilization"></a> 5.1 <code>gpu_memory_utilization</code></h3>
+<p>这个参数决定引擎可以为权重、KV Cache 和运行时使用多少显存。设得太低会限制并发，设得太高则可能在 CUDA Graph、临时 Workspace 或长请求下 OOM。</p>
+<p>建议从保守值开始，用压测观察：</p>
+<ul>
+<li>实际可分配 KV Block 数；</li>
+<li>峰值显存；</li>
+<li>抢占次数；</li>
+<li>OOM 和碎片情况。</li>
+</ul>
+<h3 id="52-max_model_len"><a class="markdownIt-Anchor" href="#52-max_model_len"></a> 5.2 <code>max_model_len</code></h3>
+<p>如果业务 P99 只有 16K，却把最大序列长度配置为模型理论支持的 128K，可能让引擎为极少出现的请求保留过多规划空间或降低可接纳并发。</p>
+<p>更合理的方式是按产品能力设置上限，并为超长请求设计独立队列、限流或专用实例。</p>
+<h3 id="53-block-size"><a class="markdownIt-Anchor" href="#53-block-size"></a> 5.3 Block Size</h3>
+<ul>
+<li>Block 过大：尾块浪费和细粒度调度能力下降；</li>
+<li>Block 过小：块表、哈希和管理开销增加。</li>
+</ul>
+<p>不要只测固定长度。不同 Prompt 分布对最佳 Block Size 的偏好可能不同。</p>
+<h2 id="六-第五步哪些功能值得开启"><a class="markdownIt-Anchor" href="#六-第五步哪些功能值得开启"></a> 六、第五步：哪些功能值得开启</h2>
+<h3 id="61-prefix-cache"><a class="markdownIt-Anchor" href="#61-prefix-cache"></a> 6.1 Prefix Cache</h3>
+<p>如果大量请求共享系统 Prompt、Few-shot 示例或固定文档前缀，Prefix Cache 可以跳过重复 Prefill，明显降低 TTFT。</p>
+<p>如果 Prompt 开头包含随机 ID、时间戳或用户特定内容，Token 前缀很早就分叉，命中率可能很低。此时缓存会占用显存，却没有带来足够收益。</p>
+<p>开启前至少统计：</p>
+<ul>
+<li>可复用前缀长度；</li>
+<li>请求之间的 Token 级重复率；</li>
+<li>缓存命中率；</li>
+<li>命中后节省的 Prefill 时间；</li>
+<li>缓存块占用和淘汰频率。</li>
+</ul>
+<h3 id="62-chunked-prefill"><a class="markdownIt-Anchor" href="#62-chunked-prefill"></a> 6.2 Chunked Prefill</h3>
+<p>P99 Prompt 达到 16K 时，长 Prefill 很可能干扰正在 Decode 的短请求。Chunked Prefill 可以改善 TPOT 稳定性，但在相同调度预算下可能让长请求 TTFT 增加。</p>
+<p>是否开启应由 SLO 决定：</p>
+<ul>
+<li>聊天业务重视输出流畅度，通常更愿意保护 TPOT；</li>
+<li>离线批处理只关心吞吐，未必需要同样的切块策略；</li>
+<li>超长上下文可以进入独立队列，避免污染普通请求。</li>
+</ul>
+<h3 id="63-cuda-graph-与-torchcompile"><a class="markdownIt-Anchor" href="#63-cuda-graph-与-torchcompile"></a> 6.3 CUDA Graph 与 <code>torch.compile</code></h3>
+<p>Decode 中 Batch Shape 相对稳定时，CUDA Graph 可以减少 CPU Launch 开销。需要同时评估：</p>
+<ul>
+<li>捕获 Shape 覆盖范围；</li>
+<li>Graph 额外占用的显存；</li>
+<li>冷启动时间；</li>
+<li>动态控制流和调试需求；</li>
+<li>捕获外算子是否形成新的同步点。</li>
+</ul>
+<h3 id="64-speculative-decoding"><a class="markdownIt-Anchor" href="#64-speculative-decoding"></a> 6.4 Speculative Decoding</h3>
+<p>投机解码使用 Draft 模型或 Self-Draft 结构提出多个候选，再由目标模型并行验证。收益依赖接受率：</p>
+<ul>
+<li>Draft 太弱：候选经常被拒绝；</li>
+<li>Draft 太大：草稿本身开销过高；</li>
+<li>目标模型 Batch 已经很大：验证收益可能被调度和内存压力抵消。</li>
+</ul>
+<p>它更适合作为单独 Benchmark 变量，而不是默认开启。</p>
+<h2 id="七-第六步是否需要-prefilldecode-解耦"><a class="markdownIt-Anchor" href="#七-第六步是否需要-prefilldecode-解耦"></a> 七、第六步：是否需要 Prefill/Decode 解耦</h2>
+<p>混合部署时，Prefill 和 Decode 共享 GPU：</p>
+<ul>
+<li>Prefill 偏 Compute Bound；</li>
+<li>Decode 偏 Memory Bound；</li>
+<li>长 Prefill 会抬高 Decode TPOT；</li>
+<li>两类阶段的最优 Batch 和并行配置不同。</li>
+</ul>
+<p>PD 解耦将它们放在不同 Worker，并通过网络传输 KV Cache。它带来新的成本：</p>
+<ul>
+<li>KV 传输带宽和延迟；</li>
+<li>Worker 比例规划；</li>
+<li>请求路由；</li>
+<li>故障恢复；</li>
+<li>KV 一致性和生命周期管理。</li>
+</ul>
+<p>只有当混部的相互干扰已经成为主要瓶颈，并且业务规模足以摊销复杂度时，PD 解耦才值得采用。单机 8 卡的第一版系统通常应先把混部调度做好。</p>
+<h2 id="八-第七步设计一套可信-benchmark"><a class="markdownIt-Anchor" href="#八-第七步设计一套可信-benchmark"></a> 八、第七步：设计一套可信 Benchmark</h2>
+<h3 id="81-不要只测固定-prompt"><a class="markdownIt-Anchor" href="#81-不要只测固定-prompt"></a> 8.1 不要只测固定 Prompt</h3>
+<p>至少覆盖：</p>
+<ul>
+<li>短输入、短输出；</li>
+<li>长输入、短输出；</li>
+<li>短输入、长输出；</li>
+<li>P99 长上下文；</li>
+<li>高 Prefix 重复率；</li>
+<li>无 Prefix 重复；</li>
+<li>稳态到达和突发流量。</li>
+</ul>
+<h3 id="82-指标分层"><a class="markdownIt-Anchor" href="#82-指标分层"></a> 8.2 指标分层</h3>
+<table>
+<thead>
+<tr>
+<th>层级</th>
+<th>指标</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>用户体验</td>
+<td>TTFT、TPOT、E2E、P95/P99</td>
+</tr>
+<tr>
+<td>系统吞吐</td>
+<td>Request/s、Input/Output Tokens/s</td>
+</tr>
+<tr>
+<td>SLO</td>
+<td>Goodput、超时率、拒绝率</td>
+</tr>
+<tr>
+<td>GPU</td>
+<td>SM、HBM、显存、Kernel Gap</td>
+</tr>
+<tr>
+<td>调度</td>
+<td>Queue Time、Batch Size、抢占次数</td>
+</tr>
+<tr>
+<td>Cache</td>
+<td>Prefix 命中率、KV Block 使用率</td>
+</tr>
+</tbody>
+</table>
+<h3 id="83-性能回归门禁"><a class="markdownIt-Anchor" href="#83-性能回归门禁"></a> 8.3 性能回归门禁</h3>
+<p>每次修改引擎版本、模型权重、CUDA、Attention Backend 或量化方式后，自动执行相同负载集。门禁不应只限制平均吞吐，还应限制：</p>
+<ul>
+<li>P95/P99 TTFT 和 TPOT；</li>
+<li>峰值显存；</li>
+<li>错误率和 OOM；</li>
+<li>输出正确性或精度回归；</li>
+<li>长上下文稳定性。</li>
+</ul>
+<h2 id="九-常见故障如何定位"><a class="markdownIt-Anchor" href="#九-常见故障如何定位"></a> 九、常见故障如何定位</h2>
+<h3 id="91-启动时-oom"><a class="markdownIt-Anchor" href="#91-启动时-oom"></a> 9.1 启动时 OOM</h3>
+<p>优先检查权重精度、TP 数量、最大序列长度、CUDA Graph 捕获和显存利用率，而不是直接降低 Batch。</p>
+<h3 id="92-运行一段时间后-oom"><a class="markdownIt-Anchor" href="#92-运行一段时间后-oom"></a> 9.2 运行一段时间后 OOM</h3>
+<p>重点检查 KV Cache 增长、长请求比例、缓存块占用、抢占策略和请求是否正确释放。</p>
+<h3 id="93-gpu-利用率低"><a class="markdownIt-Anchor" href="#93-gpu-利用率低"></a> 9.3 GPU 利用率低</h3>
+<p>可能原因包括：</p>
+<ul>
+<li>请求不足，Batch 太小；</li>
+<li>CPU 调度或 Tokenization 跟不上；</li>
+<li>Kernel Launch Gap；</li>
+<li>TP 通信等待；</li>
+<li>大量小 Kernel；</li>
+<li>请求长度差异导致调度低效。</li>
+</ul>
+<p>先用 Nsight Systems 区分 GPU 空闲和 GPU 内部低效，再决定是否进入 Nsight Compute。</p>
+<h3 id="94-吞吐很高但用户仍觉得慢"><a class="markdownIt-Anchor" href="#94-吞吐很高但用户仍觉得慢"></a> 9.4 吞吐很高但用户仍觉得慢</h3>
+<p>平均 Tokens/s 可能掩盖排队和尾延迟。检查 P99 TTFT、TPOT 和 Goodput，并按 Prompt 长度和并发分桶。</p>
+<h3 id="95-nccl-hang"><a class="markdownIt-Anchor" href="#95-nccl-hang"></a> 9.5 NCCL Hang</h3>
+<p>检查所有 Rank 是否按相同顺序进入集合通信、进程是否异常退出、网卡与拓扑是否正确，然后使用 <code>NCCL_DEBUG=INFO</code> 和 <code>nccl-tests</code> 分离代码与基础设施问题。</p>
+<h2 id="十-方案决策链与基线配置"><a class="markdownIt-Anchor" href="#十-方案决策链与基线配置"></a> 十、方案决策链与基线配置</h2>
+<p>一个完整方案不应该只报参数，而应呈现决策链：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">业务负载和 SLO</span><br><span class="line">       ↓</span><br><span class="line">模型权重与 KV 显存账本</span><br><span class="line">       ↓</span><br><span class="line">TP/副本数/量化选择</span><br><span class="line">       ↓</span><br><span class="line">KV Block 与调度配置</span><br><span class="line">       ↓</span><br><span class="line">Prefix、Chunked Prefill、CUDA Graph</span><br><span class="line">       ↓</span><br><span class="line">真实分布压测</span><br><span class="line">       ↓</span><br><span class="line">Goodput 与成本比较</span><br><span class="line">       ↓</span><br><span class="line">上线后的监控和回归门禁</span><br></pre></td></tr></table></figure>
+<p>对于本文场景，一个合理的第一版基线是：</p>
+<ul>
+<li>使用 BF16、TP=8 建立正确性和性能基线；</li>
+<li>使用 PagedAttention 和 Continuous Batching；</li>
+<li>将最大上下文限制在业务真实需要范围；</li>
+<li>对 16K 长 Prompt 开启或评估 Chunked Prefill；</li>
+<li>Prefix Cache 由实际前缀命中率决定；</li>
+<li>用真实请求分布寻找 Token Budget 和并发上限；</li>
+<li>再与量化后 TP=4、双副本方案比较 Goodput；</li>
+<li>只有混部干扰无法满足 SLO 时，再评估 PD 解耦。</li>
+</ul>
+<h2 id="十一-技术-qa"><a class="markdownIt-Anchor" href="#十一-技术-qa"></a> 十一、技术 Q&amp;A</h2>
+<h3 id="q1tp8-后70b-bf16-权重是否严格变成每卡-175gb"><a class="markdownIt-Anchor" href="#q1tp8-后70b-bf16-权重是否严格变成每卡-175gb"></a> Q1：TP=8 后，70B BF16 权重是否严格变成每卡 17.5GB？</h3>
+<p>17.5GB 只是参数均匀分片的理论值。Embedding、LM Head、Norm、小参数和量化元数据不一定都按同一方式分片；某些实现还会复制参数，或为集合通信准备连续 Buffer。容量规划应先根据引擎的实际分片规则计算下界，再用模型启动后的逐卡显存数据核对分片不均衡和额外状态。</p>
+<h3 id="q2为什么不能用-p50-prompt-长度推导最大并发"><a class="markdownIt-Anchor" href="#q2为什么不能用-p50-prompt-长度推导最大并发"></a> Q2：为什么不能用 P50 Prompt 长度推导最大并发？</h3>
+<p>KV Cache 随每个活跃请求的实际缓存长度增长。按 P50 规划会在多个长请求同时出现时低估显存；假设所有请求都是 P99 又可能严重过度配置。更合理的方法是回放真实长度与到达 Trace，或按长度分桶建立概率模型，并为极端长请求设置独立队列、并发上限和 Token 配额。</p>
+<h3 id="q3weight-only-量化为什么更可能加速-decode"><a class="markdownIt-Anchor" href="#q3weight-only-量化为什么更可能加速-decode"></a> Q3：Weight-only 量化为什么更可能加速 Decode？</h3>
+<p>Decode 的 Token 维很小，常受每轮读取大体量权重的 HBM 带宽限制。INT8/INT4 减少权重 Bytes，在具备高效融合反量化 Kernel 时可提高算术强度。Prefill 的大 GEMM 更接近 Compute Bound，其收益取决于低精度 Tensor Core、反量化开销和具体 Shape，因此加速比通常不会简单等于权重压缩比。</p>
+<h3 id="q4何时应引入-chunked-prefill-或-pd-解耦压测结果又如何转化为限流配置"><a class="markdownIt-Anchor" href="#q4何时应引入-chunked-prefill-或-pd-解耦压测结果又如何转化为限流配置"></a> Q4：何时应引入 Chunked Prefill 或 PD 解耦，压测结果又如何转化为限流配置？</h3>
+<p>长 Prefill 阻塞 Decode、导致 TPOT 抖动时，可先用 Chunked Prefill 把计算切片；它会以潜在的 TTFT 增长换取更平滑的 Decode。当混部干扰经过统一调度仍无法满足 SLO，且流量规模足以支撑独立 Worker 池时，才值得用 PD 解耦换取阶段级隔离。压测时应找到满足 TTFT/TPOT SLO 的最高稳定到达率，以单副本 Goodput 乘以安全系数和可用副本数得到服务容量，再按 Prompt 长度或估算 Token 工作量实施 Admission Control；当排队时间、KV Block 水位或 P99 越过拐点时，应排队、拒绝或路由到长上下文池，而不是等到 OOM。</p>
+<h2 id="十二-系列导航"><a class="markdownIt-Anchor" href="#十二-系列导航"></a> 十二、系列导航</h2>
+<p>上一篇：<a href="/2026/07/30/numerical-stability-to-flashattention/" title="Softmax 数值稳定性与 IO-Aware Attention：从在线归一化到 FlashAttention">Softmax 数值稳定性与 IO-Aware Attention</a></p>
+<p>回到开篇：<a href="/2026/07/30/ai-infra-memory-ledger/" title="大模型训练与推理的显存模型：参数、优化器状态与 KV Cache">大模型训练与推理的显存模型</a></p>
+<h2 id="十三-参考资料"><a class="markdownIt-Anchor" href="#十三-参考资料"></a> 十三、参考资料</h2>
+<h3 id="推理系统"><a class="markdownIt-Anchor" href="#推理系统"></a> 推理系统</h3>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://github.com/vllm-project/vllm">vLLM</a>：高吞吐 LLM Serving 引擎。</li>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2309.06180">PagedAttention</a>：KV Cache 分页与内存共享。</li>
+<li><a target="_blank" rel="noopener" href="https://www.usenix.org/conference/osdi22/presentation/yu">Orca</a>：Iteration-level Scheduling。</li>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2308.16369">SARATHI</a>：Chunked Prefill。</li>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2401.09670">DistServe</a>：Prefill/Decode 解耦。</li>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2211.17192">Fast Inference from Transformers via Speculative Decoding</a>：投机解码。</li>
+</ul>
+<h3 id="量化与并行"><a class="markdownIt-Anchor" href="#量化与并行"></a> 量化与并行</h3>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2211.10438">SmoothQuant</a>：W8A8 激活平滑量化。</li>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2306.00978">AWQ</a>：Activation-aware Weight Quantization。</li>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2210.17323">GPTQ</a>：训练后权重量化。</li>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/1909.08053">Megatron-LM</a>：张量并行。</li>
+</ul>
+<h3 id="benchmark-与指标"><a class="markdownIt-Anchor" href="#benchmark-与指标"></a> Benchmark 与指标</h3>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://docs.nvidia.com/nim/benchmarking/llm/latest/metrics.html">NVIDIA NIM LLM Benchmarking Metrics</a>：TTFT、ITL 和吞吐指标。</li>
+<li><a target="_blank" rel="noopener" href="https://mlcommons.org/benchmarks/inference-datacenter/">MLPerf Inference</a>：标准化推理 Benchmark。</li>
+<li><a target="_blank" rel="noopener" href="https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/perf_analyzer/genai-perf.html">GenAI-Perf</a>：生成式模型负载测试。</li>
+<li><a target="_blank" rel="noopener" href="https://docs.vllm.ai/">vLLM Documentation</a>：引擎参数、Serving 和 Benchmark 工具。</li>
+<li><a target="_blank" rel="noopener" href="https://github.com/caomaolufei/AIInfraGuide">AIInfraGuide</a>：显存估算、推理引擎、并行部署与性能指标的中文资料，MIT License。</li>
+</ul>
+
+      
+    </div>
+    <div class="article-footer">
+      
+
+    </div>
+  </article>
+  
+</div>
+
+  <nav class="bar bar-footer clearfix" data-stick-bottom>
+  <div class="bar-inner">
+  
+  <ul class="pager pull-left">
+    
+    
+    <li class="next">
+      <a href="/2026/07/30/numerical-stability-to-flashattention/" title="Softmax 数值稳定性与 IO-Aware Attention：从在线归一化到 FlashAttention"><span>Older&nbsp;&nbsp;</span><i class="icon icon-angle-right" aria-hidden="true"></i></a>
+    </li>
+    
+    
+  </ul>
+  
+  
+  
+  <div class="bar-right">
+    
+  </div>
+  </div>
+</nav>
+  
+
+
+
+</main>
+
+  <footer class="footer" itemscope itemtype="http://schema.org/WPFooter">
+	
+	
+    <ul class="social-links">
+    	
+        <li><a href="https://github.com/zhouzhq2021" target="_blank" title="Github" data-toggle=tooltip data-placement=top><i class="icon icon-github"></i></a></li>
+        
+        <li><a href="mailto:zhouzhq2021@sjtu.edu.cn" target="_blank" title="Email" data-toggle=tooltip data-placement=top><i class="icon icon-email"></i></a></li>
+        
+        <li><a href="/atom.xml" target="_blank" title="Rss" data-toggle=tooltip data-placement=top><i class="icon icon-rss"></i></a></li>
+        
+    </ul>
+
+    <div class="copyright">
+    	
+        &copy; 2026 Zhongquan Zhou
+        
+        <div class="publishby">
+        	Theme by <a href="https://github.com/cofess" target="_blank"> cofess </a>base on <a href="https://github.com/cofess/hexo-theme-pure" target="_blank">pure</a>.
+        </div>
+    </div>
+</footer>
+  <script src="//cdn.jsdelivr.net/npm/jquery@1.12.4/dist/jquery.min.js"></script>
+<script>
+window.jQuery || document.write('<script src="js/jquery.min.js"><\/script>')
+</script>
+
+<script src="/js/plugin.min.js"></script>
+
+
+<script src="/js/application.js"></script>
+
+
+    <script>
+(function (window) {
+    var INSIGHT_CONFIG = {
+        TRANSLATION: {
+            POSTS: 'Posts',
+            PAGES: 'Pages',
+            CATEGORIES: 'Categories',
+            TAGS: 'Tags',
+            UNTITLED: '(Untitled)',
+        },
+        ROOT_URL: '/',
+        CONTENT_URL: '/content.json',
+    };
+    window.INSIGHT_CONFIG = INSIGHT_CONFIG;
+})(window);
+</script>
+
+<script src="/js/insight.js"></script>
+
+
+
+
+
+
+   
+<script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+
+  <script src="//cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.3.5/dist/jquery.fancybox.min.js"></script>
+  <script>
+  //利用 FancyBox 实现点击图片放大
+  $(document).ready(function() {
+    $('article img').not('[hidden]').not('.panel-body img').each(function() {
+      var $image = $(this);
+      var imageCaption = $image.attr('alt');
+      var $imageWrapLink = $image.parent('a');
+      if ($imageWrapLink.length < 1) {
+        var src = this.getAttribute('src');
+        var idx = src.lastIndexOf('?');
+        if (idx != -1) {
+          src = src.substring(0, idx);
+        }
+        $imageWrapLink = $image.wrap('<a href="' + src + '"></a>').parent('a');
+      }
+      $imageWrapLink.attr('data-fancybox', 'images');
+      if (imageCaption) {
+        $imageWrapLink.attr('data-caption', imageCaption);
+      }
+    });
+    $().fancybox({
+      selector: '[data-fancybox="images"]',
+      hash: false,
+      loop: false,
+    });
+  });
+  </script>
+
+
+
+
+
+</body>
+</html>

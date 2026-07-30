@@ -1,6 +1,34 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
+    <loc>https://zhouzhq2021.github.io/2026/07/30/distributed-training-from-allreduce/</loc>
+    <lastmod>2026-07-30</lastmod>
+  </url>
+  <url>
+    <loc>https://zhouzhq2021.github.io/2026/07/30/llm-70b-capacity-planning/</loc>
+    <lastmod>2026-07-30</lastmod>
+  </url>
+  <url>
+    <loc>https://zhouzhq2021.github.io/2026/07/30/numerical-stability-to-flashattention/</loc>
+    <lastmod>2026-07-30</lastmod>
+  </url>
+  <url>
+    <loc>https://zhouzhq2021.github.io/2026/07/30/ai-infra-roofline-profiling/</loc>
+    <lastmod>2026-07-30</lastmod>
+  </url>
+  <url>
+    <loc>https://zhouzhq2021.github.io/2026/07/30/llm-serving-as-operating-system/</loc>
+    <lastmod>2026-07-30</lastmod>
+  </url>
+  <url>
+    <loc>https://zhouzhq2021.github.io/2026/07/30/llm-token-journey/</loc>
+    <lastmod>2026-07-30</lastmod>
+  </url>
+  <url>
+    <loc>https://zhouzhq2021.github.io/2026/07/30/ai-infra-memory-ledger/</loc>
+    <lastmod>2026-07-30</lastmod>
+  </url>
+  <url>
     <loc>https://zhouzhq2021.github.io/2024/06/29/kubernetes-lab-notes/</loc>
     <lastmod>2026-06-08</lastmod>
   </url>

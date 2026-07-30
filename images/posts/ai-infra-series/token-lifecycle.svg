@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="520" viewBox="0 0 1400 520">
+  <rect width="1400" height="520" fill="#f8fafc"/>
+  <style>.title{font-family:'Droid Sans Fallback',sans-serif;font-size:30px;font-weight:700;fill:#0f172a}.h{font-family:'Droid Sans Fallback',sans-serif;font-size:20px;font-weight:700;fill:#fff}.t{font-family:'Droid Sans Fallback',sans-serif;font-size:17px;fill:#1e293b}.s{font-family:'Droid Sans Fallback',sans-serif;font-size:15px;fill:#475569}.a{stroke:#64748b;stroke-width:4;marker-end:url(#m)}</style>
+  <defs><marker id="m" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#64748b"/></marker></defs>
+  <text x="700" y="48" text-anchor="middle" class="title">自回归推理中的一条 Token 执行路径</text>
+  <g transform="translate(35,100)">
+    <rect width="180" height="95" rx="14" fill="#0ea5e9"/><text x="90" y="43" text-anchor="middle" class="h">Tokenizer</text><text x="90" y="72" text-anchor="middle" class="h">文本 → Token ID</text>
+    <line x1="180" y1="48" x2="235" y2="48" class="a"/>
+    <rect x="240" width="180" height="95" rx="14" fill="#2563eb"/><text x="330" y="43" text-anchor="middle" class="h">Embedding + RoPE</text><text x="330" y="72" text-anchor="middle" class="h">位置与语义表示</text>
+    <line x1="420" y1="48" x2="475" y2="48" class="a"/>
+    <rect x="480" width="190" height="95" rx="14" fill="#4f46e5"/><text x="575" y="43" text-anchor="middle" class="h">Decoder Blocks</text><text x="575" y="72" text-anchor="middle" class="h">Attention + FFN</text>
+    <line x1="670" y1="48" x2="725" y2="48" class="a"/>
+    <rect x="730" width="180" height="95" rx="14" fill="#7c3aed"/><text x="820" y="43" text-anchor="middle" class="h">LM Head</text><text x="820" y="72" text-anchor="middle" class="h">Hidden → Logits</text>
+    <line x1="910" y1="48" x2="965" y2="48" class="a"/>
+    <rect x="970" width="180" height="95" rx="14" fill="#9333ea"/><text x="1060" y="43" text-anchor="middle" class="h">Sampling</text><text x="1060" y="72" text-anchor="middle" class="h">Logits → 新 Token</text>
+    <line x1="1150" y1="48" x2="1205" y2="48" class="a"/>
+    <rect x="1210" width="120" height="95" rx="14" fill="#be185d"/><text x="1270" y="43" text-anchor="middle" class="h">输出</text><text x="1270" y="72" text-anchor="middle" class="h">或继续</text>
+  </g>
+  <g transform="translate(275,275)">
+    <rect width="380" height="125" rx="16" fill="#dbeafe" stroke="#60a5fa" stroke-width="2"/>
+    <text x="190" y="34" text-anchor="middle" class="t">Prefill：一次处理整个 Prompt</text>
+    <text x="190" y="65" text-anchor="middle" class="s">大矩阵、高并行度，通常更接近 Compute Bound</text>
+    <text x="190" y="94" text-anchor="middle" class="s">产出首 Token，并写入所有历史 K/V</text>
+  </g>
+  <g transform="translate(745,275)">
+    <rect width="380" height="125" rx="16" fill="#ede9fe" stroke="#a78bfa" stroke-width="2"/>
+    <text x="190" y="34" text-anchor="middle" class="t">Decode：每轮每请求新增一个 Token</text>
+    <text x="190" y="65" text-anchor="middle" class="s">反复读取权重与历史 KV，通常更接近 Memory Bound</text>
+    <text x="190" y="94" text-anchor="middle" class="s">Continuous Batching 在每轮重组请求集合</text>
+  </g>
+  <path d="M1060 195 C1060 245 1180 445 700 455 C360 460 510 220 575 205" fill="none" stroke="#be185d" stroke-width="4" stroke-dasharray="9 7" marker-end="url(#m)"/>
+  <text x="700" y="493" text-anchor="middle" class="t">若未到停止条件，新 Token 追加到序列并进入下一轮 Decode</text>
+</svg>

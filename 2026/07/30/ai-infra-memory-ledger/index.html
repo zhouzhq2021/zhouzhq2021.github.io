@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang=en>
+<head>
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, minimal-ui">
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="Cache-Control" content="no-transform" />
+  <meta http-equiv="Cache-Control" content="no-siteapp" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="format-detection" content="telephone=no,email=no,adress=no">
+  <!-- Color theme for statusbar -->
+  <meta name="theme-color" content="#000000" />
+  <!-- 强制页面在当前窗口以独立页面显示,防止别人在框架里调用页面 -->
+  <meta http-equiv="window-target" content="_top" />
+  
+  
+  <title>大模型训练与推理的显存模型：参数、优化器状态与 KV Cache | Zhongquan Zhou&#39;s Blog</title>
+  <meta name="description" content="很多 AI Infra 问题，最后都会回到一句非常朴素的话：显存里到底放了什么？如果这笔账没有算清，讨论 ZeRO、量化、PagedAttention 或多卡并行，很容易变成技术名词的堆砌。 本文不按“模型结构、训练优化、推理优化”的教材顺序展开，而是从一张统一的显存账本出发，把 Transformer 参数、优化器状态、激活值和 KV Cache 放进同一个分析框架。目标不是背住某个模型需要多少">
+<meta property="og:type" content="article">
+<meta property="og:title" content="大模型训练与推理的显存模型：参数、优化器状态与 KV Cache">
+<meta property="og:url" content="https://zhouzhq2021.github.io/2026/07/30/ai-infra-memory-ledger/index.html">
+<meta property="og:site_name" content="Zhongquan Zhou&#39;s Blog">
+<meta property="og:description" content="很多 AI Infra 问题，最后都会回到一句非常朴素的话：显存里到底放了什么？如果这笔账没有算清，讨论 ZeRO、量化、PagedAttention 或多卡并行，很容易变成技术名词的堆砌。 本文不按“模型结构、训练优化、推理优化”的教材顺序展开，而是从一张统一的显存账本出发，把 Transformer 参数、优化器状态、激活值和 KV Cache 放进同一个分析框架。目标不是背住某个模型需要多少">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ai-infra-series/memory-ledger.svg">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ai-infra-series/decoder-block-stack.png">
+<meta property="article:published_time" content="2026-07-30T02:00:00.000Z">
+<meta property="article:modified_time" content="2026-07-30T03:10:05.809Z">
+<meta property="article:author" content="Zhongquan Zhou">
+<meta property="article:tag" content="AI Infra">
+<meta property="article:tag" content="AI Infra Engineering Series">
+<meta property="article:tag" content="GPU Memory">
+<meta property="article:tag" content="Distributed Training">
+<meta property="article:tag" content="LLM Inference">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://zhouzhq2021.github.io/images/posts/ai-infra-series/memory-ledger.svg">
+  <!-- Canonical links -->
+  <link rel="canonical" href="https://zhouzhq2021.github.io/2026/07/30/ai-infra-memory-ledger/index.html">
+  
+    <link rel="alternate" href="/atom.xml" title="Zhongquan Zhou&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+  
+  
+    <link href="//cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.3.5/dist/jquery.fancybox.min.css" rel="stylesheet">
+  
+  
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1.4.0/dist/gitalk.min.css">
+  
+  <link rel="stylesheet" type="text/css" href="/css/custom.css">
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body class="main-center" itemscope itemtype="http://schema.org/WebPage">
+  <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+  <div class="slimContent">
+    <div class="navbar-header">
+      
+      
+      <div class="profile-block text-center">
+        <a id="avatar" href="https://github.com/zhouzhq2021" target="_blank">
+          <img class="img-circle img-rotate" src="/images/avatar-20260605.jpg" width="200" height="200">
+        </a>
+        <h2 id="name" class="hidden-xs hidden-sm">Zhongquan Zhou</h2>
+        <h3 id="title" class="hidden-xs hidden-sm hidden-md">Computer Science Graduate Student @ Shanghai Jiao Tong University</h3>
+        <small id="location" class="text-muted hidden-xs hidden-sm"><i class="icon icon-map-marker"></i> Shanghai, China</small>
+      </div>
+      
+      <div class="search" id="search-form-wrap">
+
+    <form class="search-form sidebar-form">
+        <div class="input-group">
+            <input type="text" class="search-form-input form-control" placeholder="Search" />
+            <span class="input-group-btn">
+                <button type="submit" class="search-form-submit btn btn-flat" onclick="return false;"><i class="icon icon-search"></i></button>
+            </span>
+        </div>
+    </form>
+    <div class="ins-search">
+  <div class="ins-search-mask"></div>
+  <div class="ins-search-container">
+    <div class="ins-input-wrapper">
+      <input type="text" class="ins-search-input" placeholder="Type something..." x-webkit-speech />
+      <button type="button" class="close ins-close ins-selectable" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">×</span></button>
+    </div>
+    <div class="ins-section-wrapper">
+      <div class="ins-section-container"></div>
+    </div>
+  </div>
+</div>
+
+
+</div>
+      <button class="navbar-toggle collapsed" type="button" data-toggle="collapse" data-target="#main-navbar" aria-controls="main-navbar" aria-expanded="false">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+    </div>
+    <nav id="main-navbar" class="collapse navbar-collapse" itemscope itemtype="http://schema.org/SiteNavigationElement" role="navigation">
+      <ul class="nav navbar-nav main-nav menu-highlight">
+        
+        
+        <li class="menu-item menu-item-home">
+          <a href="/.">
+            
+            <i class="icon icon-home-fill"></i>
+            
+            <span class="menu-title">Home</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories">
+            
+            <i class="icon icon-folder"></i>
+            
+            <span class="menu-title">Categories</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags">
+            
+            <i class="icon icon-tags"></i>
+            
+            <span class="menu-title">Tags</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-repository">
+          <a href="/repository">
+            
+            <i class="icon icon-project"></i>
+            
+            <span class="menu-title">Repository</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-books">
+          <a href="/books">
+            
+            <i class="icon icon-book-fill"></i>
+            
+            <span class="menu-title">Books</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-links">
+          <a href="/links">
+            
+            <i class="icon icon-friendship"></i>
+            
+            <span class="menu-title">Links</span>
+          </a>
+        </li>
+        
+      </ul>
+      
+	
+    <ul class="social-links">
+    	
+        <li><a href="https://github.com/zhouzhq2021" target="_blank" title="Github" data-toggle=tooltip data-placement=top><i class="icon icon-github"></i></a></li>
+        
+        <li><a href="mailto:zhouzhq2021@sjtu.edu.cn" target="_blank" title="Email" data-toggle=tooltip data-placement=top><i class="icon icon-email"></i></a></li>
+        
+        <li><a href="/atom.xml" target="_blank" title="Rss" data-toggle=tooltip data-placement=top><i class="icon icon-rss"></i></a></li>
+        
+    </ul>
+
+    </nav>
+  </div>
+</header>
+
+  
+    <aside class="sidebar" itemscope itemtype="http://schema.org/WPSideBar">
+  <div class="slimContent">
+    
+      <div class="widget">
+    <h3 class="widget-title">Board</h3>
+    <div class="widget-body">
+        <div id="board">
+            <div class="content">
+                <p>Welcome to my personal blog! Feel free to explore and share your thoughts!</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Contact</h3>
+    <div class="widget-body">
+      <ul class="sidebar-simple-list">
+        
+          
+          <li>
+            <span class="sidebar-contact-label">Email</span>
+            
+              <a href="mailto:zhouzhq2021@sjtu.edu.cn">zhouzhq2021@sjtu.edu.cn</a>
+            
+          </li>
+        
+          
+          <li>
+            <span class="sidebar-contact-label">GitHub</span>
+            
+              <a href="https://github.com/zhouzhq2021" target="_blank">github.com/zhouzhq2021</a>
+            
+          </li>
+        
+          
+          <li>
+            <span class="sidebar-contact-label">Location</span>
+            
+              <span>Shanghai, China</span>
+            
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Categories</h3>
+    <div class="widget-body">
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/AI-Infrastructure/">AI Infrastructure</a><span class="category-list-count">7</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/Cloud-Computing-and-Big-Data/">Cloud Computing and Big Data</a><span class="category-list-count">4</span></li></ul>
+    </div>
+  </div>
+
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Tags</h3>
+    <div class="widget-body">
+      <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/AI-Infra/" rel="tag">AI Infra</a><span class="tag-list-count">7</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/AI-Infra-Engineering-Series/" rel="tag">AI Infra Engineering Series</a><span class="tag-list-count">7</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Benchmark/" rel="tag">Benchmark</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/CUDA/" rel="tag">CUDA</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Capacity-Planning/" rel="tag">Capacity Planning</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Ceph/" rel="tag">Ceph</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Distributed-Training/" rel="tag">Distributed Training</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/FSDP/" rel="tag">FSDP</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/FlashAttention/" rel="tag">FlashAttention</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/GPU-Memory/" rel="tag">GPU Memory</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Hadoop/" rel="tag">Hadoop</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Kubernetes/" rel="tag">Kubernetes</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/LLM-Inference/" rel="tag">LLM Inference</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/LLM-Serving/" rel="tag">LLM Serving</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/NCCL/" rel="tag">NCCL</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Nsight/" rel="tag">Nsight</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Numerical-Stability/" rel="tag">Numerical Stability</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/OpenStack/" rel="tag">OpenStack</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/PagedAttention/" rel="tag">PagedAttention</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Performance-Profiling/" rel="tag">Performance Profiling</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Softmax/" rel="tag">Softmax</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Transformer/" rel="tag">Transformer</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/vLLM/" rel="tag">vLLM</a><span class="tag-list-count">2</span></li></ul>
+    </div>
+  </div>
+
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Tag Cloud</h3>
+    <div class="widget-body tagcloud">
+      <a href="/tags/AI-Infra/" style="font-size: 14px;">AI Infra</a> <a href="/tags/AI-Infra-Engineering-Series/" style="font-size: 14px;">AI Infra Engineering Series</a> <a href="/tags/Benchmark/" style="font-size: 13px;">Benchmark</a> <a href="/tags/CUDA/" style="font-size: 13px;">CUDA</a> <a href="/tags/Capacity-Planning/" style="font-size: 13px;">Capacity Planning</a> <a href="/tags/Ceph/" style="font-size: 13px;">Ceph</a> <a href="/tags/Distributed-Training/" style="font-size: 13.5px;">Distributed Training</a> <a href="/tags/FSDP/" style="font-size: 13px;">FSDP</a> <a href="/tags/FlashAttention/" style="font-size: 13px;">FlashAttention</a> <a href="/tags/GPU-Memory/" style="font-size: 13px;">GPU Memory</a> <a href="/tags/Hadoop/" style="font-size: 13px;">Hadoop</a> <a href="/tags/Kubernetes/" style="font-size: 13px;">Kubernetes</a> <a href="/tags/LLM-Inference/" style="font-size: 13.5px;">LLM Inference</a> <a href="/tags/LLM-Serving/" style="font-size: 13.5px;">LLM Serving</a> <a href="/tags/NCCL/" style="font-size: 13px;">NCCL</a> <a href="/tags/Nsight/" style="font-size: 13px;">Nsight</a> <a href="/tags/Numerical-Stability/" style="font-size: 13px;">Numerical Stability</a> <a href="/tags/OpenStack/" style="font-size: 13px;">OpenStack</a> <a href="/tags/PagedAttention/" style="font-size: 13px;">PagedAttention</a> <a href="/tags/Performance-Profiling/" style="font-size: 13px;">Performance Profiling</a> <a href="/tags/Softmax/" style="font-size: 13px;">Softmax</a> <a href="/tags/Transformer/" style="font-size: 13px;">Transformer</a> <a href="/tags/vLLM/" style="font-size: 13.5px;">vLLM</a>
+    </div>
+  </div>
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Archive</h3>
+    <div class="widget-body">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2026/07/">July 2026</a><span class="archive-list-count">7</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2024/06/">June 2024</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2024/05/">May 2024</a><span class="archive-list-count">2</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2024/04/">April 2024</a><span class="archive-list-count">1</span></li></ul>
+    </div>
+  </div>
+
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget-body">
+      <ul class="recent-post-list list-unstyled ">
+        
+          <li>
+            
+            <div class="item-thumb">
+              <a href="/2026/07/30/llm-70b-capacity-planning/" class="thumb">
+    
+    
+        <span class="thumb-image thumb-none"></span>
+    
+</a>
+
+            </div>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/AI-Infrastructure/">AI Infrastructure</a>
+              </p>
+              <p class="item-title">
+                <a href="/2026/07/30/llm-70b-capacity-planning/" class="title">70B 大模型推理服务的容量规划与性能设计</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2026-07-30T03:00:00.000Z" itemprop="datePublished">2026-07-30</time>
+              </p>
+            </div>
+          </li>
+          
+          <li>
+            
+            <div class="item-thumb">
+              <a href="/2026/07/30/numerical-stability-to-flashattention/" class="thumb">
+    
+    
+        <span class="thumb-image thumb-none"></span>
+    
+</a>
+
+            </div>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/AI-Infrastructure/">AI Infrastructure</a>
+              </p>
+              <p class="item-title">
+                <a href="/2026/07/30/numerical-stability-to-flashattention/" class="title">Softmax 数值稳定性与 IO-Aware Attention：从在线归一化到 FlashAttention</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2026-07-30T02:50:00.000Z" itemprop="datePublished">2026-07-30</time>
+              </p>
+            </div>
+          </li>
+          
+          <li>
+            
+            <div class="item-thumb">
+              <a href="/2026/07/30/distributed-training-from-allreduce/" class="thumb">
+    
+    
+        <span class="thumb-image thumb-none"></span>
+    
+</a>
+
+            </div>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/AI-Infrastructure/">AI Infrastructure</a>
+              </p>
+              <p class="item-title">
+                <a href="/2026/07/30/distributed-training-from-allreduce/" class="title">分布式训练的通信模型：从集合通信到多维并行</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2026-07-30T02:40:00.000Z" itemprop="datePublished">2026-07-30</time>
+              </p>
+            </div>
+          </li>
+          
+          <li>
+            
+            <div class="item-thumb">
+              <a href="/2026/07/30/llm-serving-as-operating-system/" class="thumb">
+    
+    
+        <span class="thumb-image thumb-none"></span>
+    
+</a>
+
+            </div>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/AI-Infrastructure/">AI Infrastructure</a>
+              </p>
+              <p class="item-title">
+                <a href="/2026/07/30/llm-serving-as-operating-system/" class="title">LLM 推理引擎的内存管理与调度：PagedAttention、Prefix Cache 与 Continuous Batching</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2026-07-30T02:30:00.000Z" itemprop="datePublished">2026-07-30</time>
+              </p>
+            </div>
+          </li>
+          
+          <li>
+            
+            <div class="item-thumb">
+              <a href="/2026/07/30/ai-infra-roofline-profiling/" class="thumb">
+    
+    
+        <span class="thumb-image thumb-none"></span>
+    
+</a>
+
+            </div>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/AI-Infrastructure/">AI Infrastructure</a>
+              </p>
+              <p class="item-title">
+                <a href="/2026/07/30/ai-infra-roofline-profiling/" class="title">GPU 性能分析方法：Roofline 模型、CUDA 内存层次与 Nsight</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2026-07-30T02:20:00.000Z" itemprop="datePublished">2026-07-30</time>
+              </p>
+            </div>
+          </li>
+          
+      </ul>
+    </div>
+  </div>
+  
+
+    
+  </div>
+</aside>
+
+  
+  
+<main class="main" role="main">
+  <div class="content">
+  <article id="post-ai-infra-memory-ledger" class="article article-type-post" itemscope itemtype="http://schema.org/BlogPosting">
+    
+    <div class="article-header">
+      
+        
+  
+    <h1 class="article-title" itemprop="name">
+      大模型训练与推理的显存模型：参数、优化器状态与 KV Cache
+    </h1>
+  
+
+      
+      <div class="article-meta">
+        <span class="article-date">
+    <i class="icon icon-calendar-check"></i>
+	<a href="/2026/07/30/ai-infra-memory-ledger/" class="article-date">
+	  <time datetime="2026-07-30T02:00:00.000Z" itemprop="datePublished">2026-07-30</time>
+	</a>
+</span>
+        
+  <span class="article-category">
+    <i class="icon icon-folder"></i>
+    <a class="article-category-link" href="/categories/AI-Infrastructure/">AI Infrastructure</a>
+  </span>
+
+        
+  <span class="article-tag">
+    <i class="icon icon-tags"></i>
+	<a class="article-tag-link-link" href="/tags/AI-Infra/" rel="tag">AI Infra</a>, <a class="article-tag-link-link" href="/tags/AI-Infra-Engineering-Series/" rel="tag">AI Infra Engineering Series</a>, <a class="article-tag-link-link" href="/tags/Distributed-Training/" rel="tag">Distributed Training</a>, <a class="article-tag-link-link" href="/tags/GPU-Memory/" rel="tag">GPU Memory</a>, <a class="article-tag-link-link" href="/tags/LLM-Inference/" rel="tag">LLM Inference</a>
+  </span>
+
+
+        
+	<span class="article-read hidden-xs">
+	    <i class="icon icon-eye-fill" aria-hidden="true"></i>
+	    <span id="busuanzi_container_page_pv">
+			<span id="busuanzi_value_page_pv">0</span>
+		</span>
+	</span>
+
+
+        
+        
+	
+		<span class="post-wordcount hidden-xs" itemprop="wordCount">Word Count: 3.5k(words)</span>
+	
+	
+		<span class="post-readcount hidden-xs" itemprop="timeRequired">Read Count: 13(minutes)</span>
+	
+
+      </div>
+    </div>
+    <div class="article-entry marked-body" itemprop="articleBody">
+      
+        <p>很多 AI Infra 问题，最后都会回到一句非常朴素的话：显存里到底放了什么？如果这笔账没有算清，讨论 ZeRO、量化、PagedAttention 或多卡并行，很容易变成技术名词的堆砌。</p>
+<p>本文不按“模型结构、训练优化、推理优化”的教材顺序展开，而是从一张统一的显存账本出发，把 Transformer 参数、优化器状态、激活值和 KV Cache 放进同一个分析框架。目标不是背住某个模型需要多少 GB，而是拿到任意配置后，都能判断它是否装得下、为什么装不下，以及应该用什么代价换取空间。</p>
+<p><img src="/images/posts/ai-infra-series/memory-ledger.svg" alt="训练与推理显存账本" /></p>
+<p><em>图 1：训练显存和推理显存应使用两套状态模型，但最终都要回到统一的资源预算。</em></p>
+<h2 id="一-先区分两个问题装得下和跑得好"><a class="markdownIt-Anchor" href="#一-先区分两个问题装得下和跑得好"></a> 一、先区分两个问题：装得下和跑得好</h2>
+<p>“一张 H100 能不能运行 7B 模型”不是一个完整问题。至少还要补充四个条件：</p>
+<ul>
+<li>训练还是推理；</li>
+<li>使用 BF16、FP16、FP8、INT8 还是 INT4；</li>
+<li>Batch Size、序列长度和并发量是多少；</li>
+<li>是否使用张量并行、FSDP、量化或 CPU Offload。</li>
+</ul>
+<p>模型勉强装进显存，也不代表系统可以稳定运行。CUDA Context、通信 Buffer、临时 Workspace、CUDA Graph 和框架缓存都需要空间。生产环境通常不会把显存利用率推到理论上的 100%，否则一次较长的请求或稍大的临时张量就可能触发 OOM。</p>
+<p>因此容量规划要依次回答：</p>
+<ol>
+<li>权重和长期状态占多少；</li>
+<li>随输入变化的动态状态占多少；</li>
+<li>运行时还需要留下多少安全空间；</li>
+<li>达到目标吞吐时，动态状态会增长到什么程度。</li>
+</ol>
+<h3 id="11-用生命周期-副本数统一不同状态"><a class="markdownIt-Anchor" href="#11-用生命周期-副本数统一不同状态"></a> 1.1 用“生命周期 × 副本数”统一不同状态</h3>
+<p>仅按“权重、梯度、激活”分类还不够。更稳健的模型是同时标注状态的生命周期和复制方式：</p>
+<table>
+<thead>
+<tr>
+<th>状态</th>
+<th>生命周期</th>
+<th>主要增长变量</th>
+<th>是否适合分片</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>模型权重</td>
+<td>服务或训练进程全程</td>
+<td>参数量、精度</td>
+<td>TP/FSDP 可分片</td>
+</tr>
+<tr>
+<td>优化器状态</td>
+<td>整个训练任务</td>
+<td>参数量、优化器</td>
+<td>ZeRO/FSDP 可分片</td>
+</tr>
+<tr>
+<td>激活</td>
+<td>一个 Micro Batch 的前反向</td>
+<td>Batch、Sequence、层数</td>
+<td>SP/CP 或重计算</td>
+</tr>
+<tr>
+<td>KV Cache</td>
+<td>一个请求的存活时间</td>
+<td>并发、已缓存 Token</td>
+<td>TP 分片、分页管理</td>
+</tr>
+<tr>
+<td>Workspace</td>
+<td>一次算子或一张计算图</td>
+<td>Kernel、Shape、后端</td>
+<td>通常不可简单均分</td>
+</tr>
+<tr>
+<td>通信 Buffer</td>
+<td>Collective 执行期间</td>
+<td>Bucket、并行组</td>
+<td>与通信实现相关</td>
+</tr>
+</tbody>
+</table>
+<p>对于任意长期状态，可以用下面的抽象检查是否重复计算：</p>
+<p class='katex-block'><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><msub><mi>M</mi><mrow><mi>s</mi><mi>t</mi><mi>a</mi><mi>t</mi><mi>e</mi></mrow></msub><mo>=</mo><mtext>元素数</mtext><mo>×</mo><mtext>每元素字节数</mtext><mo>×</mo><mfrac><mtext>副本因子</mtext><mtext>分片因子</mtext></mfrac></mrow><annotation encoding="application/x-tex">M_{state}=\text{元素数}\times\text{每元素字节数}\times
+\frac{\text{副本因子}}{\text{分片因子}}
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.83333em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.10903em;">M</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.2805559999999999em;"><span style="top:-2.5500000000000003em;margin-left:-0.10903em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">s</span><span class="mord mathnormal mtight">t</span><span class="mord mathnormal mtight">a</span><span class="mord mathnormal mtight">t</span><span class="mord mathnormal mtight">e</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:0.76666em;vertical-align:-0.08333em;"></span><span class="mord text"><span class="mord cjk_fallback">元素数</span></span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:0.76666em;vertical-align:-0.08333em;"></span><span class="mord text"><span class="mord cjk_fallback">每元素字节数</span></span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:2.04633em;vertical-align:-0.686em;"></span><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.36033em;"><span style="top:-2.314em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord text"><span class="mord cjk_fallback">分片因子</span></span></span></span><span style="top:-3.23em;"><span class="pstrut" style="height:3em;"></span><span class="frac-line" style="border-bottom-width:0.04em;"></span></span><span style="top:-3.677em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord text"><span class="mord cjk_fallback">副本因子</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.686em;"><span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span></span></span></span></span></p>
+<p>这个公式比“参数量除以 GPU 数”多了一个关键变量：副本因子。某个张量即使理论上可分片，也可能因为计算或通信需要，在特定阶段临时恢复完整副本。FSDP 的峰值 AllGather、TP 中未切分的小参数以及 CUDA Graph 私有池都属于这类情况。</p>
+<h2 id="二-从配置文件估算参数量"><a class="markdownIt-Anchor" href="#二-从配置文件估算参数量"></a> 二、从配置文件估算参数量</h2>
+<p>设隐藏维度为 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>d</mi></mrow><annotation encoding="application/x-tex">d</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.69444em;vertical-align:0em;"></span><span class="mord mathnormal">d</span></span></span></span>，层数为 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>L</mi></mrow><annotation encoding="application/x-tex">L</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord mathnormal">L</span></span></span></span>，词表大小为 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>V</mi></mrow><annotation encoding="application/x-tex">V</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord mathnormal" style="margin-right:0.22222em;">V</span></span></span></span>，FFN 中间维度为 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>d</mi><mrow><mi>f</mi><mi>f</mi></mrow></msub></mrow><annotation encoding="application/x-tex">d_{ff}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.980548em;vertical-align:-0.286108em;"></span><span class="mord"><span class="mord mathnormal">d</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361079999999999em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.10764em;">f</span><span class="mord mathnormal mtight" style="margin-right:0.10764em;">f</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.286108em;"><span></span></span></span></span></span></span></span></span></span>。</p>
+<h3 id="21-embedding-和-lm-head"><a class="markdownIt-Anchor" href="#21-embedding-和-lm-head"></a> 2.1 Embedding 和 LM Head</h3>
+<p>输入 Embedding 的参数量为：</p>
+<p class='katex-block'><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>V</mi><mo>×</mo><mi>d</mi></mrow><annotation encoding="application/x-tex">V \times d
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.76666em;vertical-align:-0.08333em;"></span><span class="mord mathnormal" style="margin-right:0.22222em;">V</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:0.69444em;vertical-align:0em;"></span><span class="mord mathnormal">d</span></span></span></span></span></p>
+<p>如果模型使用 Weight Tying，让输入 Embedding 和输出 LM Head 共享权重，这部分只存一份；否则还要再加一个 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>V</mi><mo>×</mo><mi>d</mi></mrow><annotation encoding="application/x-tex">V \times d</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.76666em;vertical-align:-0.08333em;"></span><span class="mord mathnormal" style="margin-right:0.22222em;">V</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:0.69444em;vertical-align:0em;"></span><span class="mord mathnormal">d</span></span></span></span>。</p>
+<p><img src="/images/posts/ai-infra-series/decoder-block-stack.png" alt="Decoder-only 模型由多个 Decoder Block 堆叠而成" /></p>
+<p><em>图 2：参数账本必须覆盖 Embedding、每层 Attention/FFN 以及最终输出层，而不能只按隐藏维度粗略估计。</em></p>
+<h3 id="22-attention"><a class="markdownIt-Anchor" href="#22-attention"></a> 2.2 Attention</h3>
+<p>标准 Multi-Head Attention 包含 Q、K、V 和输出投影，忽略 Bias 时约为：</p>
+<p class='katex-block'><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mn>4</mn><msup><mi>d</mi><mn>2</mn></msup></mrow><annotation encoding="application/x-tex">4d^2
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8641079999999999em;vertical-align:0em;"></span><span class="mord">4</span><span class="mord"><span class="mord mathnormal">d</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641079999999999em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span></span></span></span></span></p>
+<p>GQA 或 MQA 会减少 K、V 投影的输出维度。设 Query Head 数为 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>H</mi><mi>q</mi></msub></mrow><annotation encoding="application/x-tex">H_q</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.969438em;vertical-align:-0.286108em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.08125em;">H</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.15139200000000003em;"><span style="top:-2.5500000000000003em;margin-left:-0.08125em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.03588em;">q</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.286108em;"><span></span></span></span></span></span></span></span></span></span>，KV Head 数为 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>H</mi><mrow><mi>k</mi><mi>v</mi></mrow></msub></mrow><annotation encoding="application/x-tex">H_{kv}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.83333em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.08125em;">H</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.33610799999999996em;"><span style="top:-2.5500000000000003em;margin-left:-0.08125em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.03148em;">k</span><span class="mord mathnormal mtight" style="margin-right:0.03588em;">v</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span>，单头维度为 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>d</mi><mi>h</mi></msub><mo>=</mo><mi>d</mi><mi mathvariant="normal">/</mi><msub><mi>H</mi><mi>q</mi></msub></mrow><annotation encoding="application/x-tex">d_h=d/H_q</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.84444em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal">d</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.33610799999999996em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">h</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:1.036108em;vertical-align:-0.286108em;"></span><span class="mord mathnormal">d</span><span class="mord">/</span><span class="mord"><span class="mord mathnormal" style="margin-right:0.08125em;">H</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.15139200000000003em;"><span style="top:-2.5500000000000003em;margin-left:-0.08125em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight" style="margin-right:0.03588em;">q</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.286108em;"><span></span></span></span></span></span></span></span></span></span>，则每层 Attention 参数量约为：</p>
+<p class='katex-block'><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><msup><mi>d</mi><mn>2</mn></msup><mo>+</mo><mn>2</mn><mi>d</mi><mo stretchy="false">(</mo><msub><mi>H</mi><mrow><mi>k</mi><mi>v</mi></mrow></msub><msub><mi>d</mi><mi>h</mi></msub><mo stretchy="false">)</mo><mo>+</mo><msup><mi>d</mi><mn>2</mn></msup></mrow><annotation encoding="application/x-tex">d^2 + 2d(H_{kv}d_h) + d^2
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.9474379999999999em;vertical-align:-0.08333em;"></span><span class="mord"><span class="mord mathnormal">d</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641079999999999em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord">2</span><span class="mord mathnormal">d</span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal" style="margin-right:0.08125em;">H</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.33610799999999996em;"><span style="top:-2.5500000000000003em;margin-left:-0.08125em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.03148em;">k</span><span class="mord mathnormal mtight" style="margin-right:0.03588em;">v</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mord"><span class="mord mathnormal">d</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.33610799999999996em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">h</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mclose">)</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:0.8641079999999999em;vertical-align:0em;"></span><span class="mord"><span class="mord mathnormal">d</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8641079999999999em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight">2</span></span></span></span></span></span></span></span></span></span></span></span></p>
+<p>GQA 对总参数量的影响通常没有对 KV Cache 那么显著，但会直接改变推理时每个 Token 的缓存大小。</p>
+<h3 id="23-swiglu-ffn"><a class="markdownIt-Anchor" href="#23-swiglu-ffn"></a> 2.3 SwiGLU FFN</h3>
+<p>当前很多 Decoder-only 模型使用 SwiGLU。它包含 Gate、Up 和 Down 三个矩阵，因此每层约为：</p>
+<p class='katex-block'><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mn>3</mn><mi>d</mi><mo>×</mo><msub><mi>d</mi><mrow><mi>f</mi><mi>f</mi></mrow></msub></mrow><annotation encoding="application/x-tex">3d \times d_{ff}
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.77777em;vertical-align:-0.08333em;"></span><span class="mord">3</span><span class="mord mathnormal">d</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:0.980548em;vertical-align:-0.286108em;"></span><span class="mord"><span class="mord mathnormal">d</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361079999999999em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.10764em;">f</span><span class="mord mathnormal mtight" style="margin-right:0.10764em;">f</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.286108em;"><span></span></span></span></span></span></span></span></span></span></span></p>
+<p>这也是为什么大模型中 FFN 往往比 Attention 占用更多参数。</p>
+<h3 id="24-一个可复用的近似式"><a class="markdownIt-Anchor" href="#24-一个可复用的近似式"></a> 2.4 一个可复用的近似式</h3>
+<p>忽略 Norm 和 Bias 等小项，一个 Decoder-only 模型可以近似写成：</p>
+<p class='katex-block'><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>N</mi><mo>≈</mo><mi>V</mi><mi>d</mi><mo>+</mo><mi>L</mi><mrow><mo fence="true">(</mo><msub><mi>P</mi><mrow><mi>a</mi><mi>t</mi><mi>t</mi><mi>n</mi></mrow></msub><mo>+</mo><mn>3</mn><mi>d</mi><msub><mi>d</mi><mrow><mi>f</mi><mi>f</mi></mrow></msub><mo fence="true">)</mo></mrow></mrow><annotation encoding="application/x-tex">N \approx Vd + L\left(P_{attn}+3dd_{ff}\right)
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord mathnormal" style="margin-right:0.10903em;">N</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">≈</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:0.77777em;vertical-align:-0.08333em;"></span><span class="mord mathnormal" style="margin-right:0.22222em;">V</span><span class="mord mathnormal">d</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:1.036108em;vertical-align:-0.286108em;"></span><span class="mord mathnormal">L</span><span class="mspace" style="margin-right:0.16666666666666666em;"></span><span class="minner"><span class="mopen delimcenter" style="top:0em;">(</span><span class="mord"><span class="mord mathnormal" style="margin-right:0.13889em;">P</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.2805559999999999em;"><span style="top:-2.5500000000000003em;margin-left:-0.13889em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">a</span><span class="mord mathnormal mtight">t</span><span class="mord mathnormal mtight">t</span><span class="mord mathnormal mtight">n</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mord">3</span><span class="mord mathnormal">d</span><span class="mord"><span class="mord mathnormal">d</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361079999999999em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.10764em;">f</span><span class="mord mathnormal mtight" style="margin-right:0.10764em;">f</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.286108em;"><span></span></span></span></span></span></span><span class="mclose delimcenter" style="top:0em;">)</span></span></span></span></span></span></p>
+<p>手算时不必追求个位数精度。容量规划更关心 7B、13B、70B 这种数量级，以及不同模块在总参数中的比例。</p>
+<h2 id="三-训练显存为什么常见估算是每参数-16-字节"><a class="markdownIt-Anchor" href="#三-训练显存为什么常见估算是每参数-16-字节"></a> 三、训练显存：为什么常见估算是每参数 16 字节</h2>
+<p>使用 BF16 参数和 AdamW 训练时，一种常见的静态显存账本如下：</p>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th style="text-align:right">每参数字节数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>BF16 参数</td>
+<td style="text-align:right">2 B</td>
+<td>前向与反向使用</td>
+</tr>
+<tr>
+<td>BF16 梯度</td>
+<td style="text-align:right">2 B</td>
+<td>实现不同可能有所变化</td>
+</tr>
+<tr>
+<td>FP32 主权重</td>
+<td style="text-align:right">4 B</td>
+<td>保证更新精度</td>
+</tr>
+<tr>
+<td>Adam 一阶动量</td>
+<td style="text-align:right">4 B</td>
+<td>梯度指数移动平均</td>
+</tr>
+<tr>
+<td>Adam 二阶动量</td>
+<td style="text-align:right">4 B</td>
+<td>梯度平方指数移动平均</td>
+</tr>
+<tr>
+<td>合计</td>
+<td style="text-align:right">16 B</td>
+<td>不含激活和临时 Buffer</td>
+</tr>
+</tbody>
+</table>
+<p>因此，静态训练状态常用下面的数量级估算：</p>
+<p class='katex-block'><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><msub><mi>M</mi><mrow><mi>s</mi><mi>t</mi><mi>a</mi><mi>t</mi><mi>i</mi><mi>c</mi></mrow></msub><mo>≈</mo><mn>16</mn><mi>N</mi></mrow><annotation encoding="application/x-tex">M_{static} \approx 16N
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.83333em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.10903em;">M</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.31166399999999994em;"><span style="top:-2.5500000000000003em;margin-left:-0.10903em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">s</span><span class="mord mathnormal mtight">t</span><span class="mord mathnormal mtight">a</span><span class="mord mathnormal mtight">t</span><span class="mord mathnormal mtight">i</span><span class="mord mathnormal mtight">c</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">≈</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord">1</span><span class="mord">6</span><span class="mord mathnormal" style="margin-right:0.10903em;">N</span></span></span></span></span></p>
+<p>一个 7B 模型仅静态状态就约为 112 GB。即使不考虑激活值，它也无法直接放进一张 80GB GPU 中进行标准 AdamW 训练。</p>
+<p>需要特别注意：<code>16N</code> 是便于做决策的工程近似，不是所有框架都严格一致。梯度精度、优化器实现、参数 Flatten、通信 Bucket 和分配器行为都会影响真实结果。</p>
+<h3 id="31-激活值为什么更难估算"><a class="markdownIt-Anchor" href="#31-激活值为什么更难估算"></a> 3.1 激活值为什么更难估算</h3>
+<p>参数和优化器状态主要由模型规模决定，激活值则还受到以下因素影响：</p>
+<ul>
+<li>Micro Batch Size；</li>
+<li>序列长度；</li>
+<li>层数和隐藏维度；</li>
+<li>Attention 是否保存 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>S</mi><mo>×</mo><mi>S</mi></mrow><annotation encoding="application/x-tex">S\times S</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.76666em;vertical-align:-0.08333em;"></span><span class="mord mathnormal" style="margin-right:0.05764em;">S</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord mathnormal" style="margin-right:0.05764em;">S</span></span></span></span> 中间矩阵；</li>
+<li>是否启用 FlashAttention；</li>
+<li>是否启用 Activation Checkpointing；</li>
+<li>Tensor Parallel 和 Sequence Parallel 的切分方式。</li>
+</ul>
+<p>激活显存通常可以抽象为：</p>
+<p class='katex-block'><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><msub><mi>M</mi><mrow><mi>a</mi><mi>c</mi><mi>t</mi></mrow></msub><mo>∝</mo><mi>B</mi><mo>×</mo><mi>S</mi><mo>×</mo><mi>d</mi><mo>×</mo><mi>L</mi></mrow><annotation encoding="application/x-tex">M_{act} \propto B \times S \times d \times L
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.83333em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.10903em;">M</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.2805559999999999em;"><span style="top:-2.5500000000000003em;margin-left:-0.10903em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">a</span><span class="mord mathnormal mtight">c</span><span class="mord mathnormal mtight">t</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">∝</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:0.76666em;vertical-align:-0.08333em;"></span><span class="mord mathnormal" style="margin-right:0.05017em;">B</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:0.76666em;vertical-align:-0.08333em;"></span><span class="mord mathnormal" style="margin-right:0.05764em;">S</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:0.77777em;vertical-align:-0.08333em;"></span><span class="mord mathnormal">d</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord mathnormal">L</span></span></span></span></span></p>
+<p>不同实现的常数项差异很大，所以最可靠的方法是先做理论上界，再用框架的显存快照和 Profiler 验证。</p>
+<h2 id="四-推理显存权重之外真正会增长的是-kv-cache"><a class="markdownIt-Anchor" href="#四-推理显存权重之外真正会增长的是-kv-cache"></a> 四、推理显存：权重之外，真正会增长的是 KV Cache</h2>
+<p>推理时不再保存梯度和优化器状态，显存的主体变为：</p>
+<p class='katex-block'><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><msub><mi>M</mi><mrow><mi>i</mi><mi>n</mi><mi>f</mi><mi>e</mi><mi>r</mi><mi>e</mi><mi>n</mi><mi>c</mi><mi>e</mi></mrow></msub><mo>=</mo><msub><mi>M</mi><mrow><mi>w</mi><mi>e</mi><mi>i</mi><mi>g</mi><mi>h</mi><mi>t</mi><mi>s</mi></mrow></msub><mo>+</mo><msub><mi>M</mi><mrow><mi>K</mi><mi>V</mi></mrow></msub><mo>+</mo><msub><mi>M</mi><mrow><mi>r</mi><mi>u</mi><mi>n</mi><mi>t</mi><mi>i</mi><mi>m</mi><mi>e</mi></mrow></msub></mrow><annotation encoding="application/x-tex">M_{inference}=M_{weights}+M_{KV}+M_{runtime}
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.969438em;vertical-align:-0.286108em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.10903em;">M</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361079999999999em;"><span style="top:-2.5500000000000003em;margin-left:-0.10903em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">i</span><span class="mord mathnormal mtight">n</span><span class="mord mathnormal mtight" style="margin-right:0.10764em;">f</span><span class="mord mathnormal mtight">e</span><span class="mord mathnormal mtight" style="margin-right:0.02778em;">r</span><span class="mord mathnormal mtight">e</span><span class="mord mathnormal mtight">n</span><span class="mord mathnormal mtight">c</span><span class="mord mathnormal mtight">e</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.286108em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:0.969438em;vertical-align:-0.286108em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.10903em;">M</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361079999999999em;"><span style="top:-2.5500000000000003em;margin-left:-0.10903em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.02691em;">w</span><span class="mord mathnormal mtight">e</span><span class="mord mathnormal mtight">i</span><span class="mord mathnormal mtight" style="margin-right:0.03588em;">g</span><span class="mord mathnormal mtight">h</span><span class="mord mathnormal mtight">t</span><span class="mord mathnormal mtight">s</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.286108em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:0.83333em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.10903em;">M</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.32833099999999993em;"><span style="top:-2.5500000000000003em;margin-left:-0.10903em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.07153em;">K</span><span class="mord mathnormal mtight" style="margin-right:0.22222em;">V</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">+</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:0.83333em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.10903em;">M</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.31166399999999994em;"><span style="top:-2.5500000000000003em;margin-left:-0.10903em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.02778em;">r</span><span class="mord mathnormal mtight">u</span><span class="mord mathnormal mtight">n</span><span class="mord mathnormal mtight">t</span><span class="mord mathnormal mtight">i</span><span class="mord mathnormal mtight">m</span><span class="mord mathnormal mtight">e</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span></span></p>
+<h3 id="41-权重显存"><a class="markdownIt-Anchor" href="#41-权重显存"></a> 4.1 权重显存</h3>
+<p>权重部分可以直接近似为：</p>
+<table>
+<thead>
+<tr>
+<th>精度</th>
+<th style="text-align:right">每参数字节数</th>
+<th style="text-align:right">70B 权重量级</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FP32</td>
+<td style="text-align:right">4 B</td>
+<td style="text-align:right">280 GB</td>
+</tr>
+<tr>
+<td>BF16/FP16</td>
+<td style="text-align:right">2 B</td>
+<td style="text-align:right">140 GB</td>
+</tr>
+<tr>
+<td>INT8</td>
+<td style="text-align:right">1 B</td>
+<td style="text-align:right">70 GB，加上量化元数据</td>
+</tr>
+<tr>
+<td>INT4</td>
+<td style="text-align:right">0.5 B</td>
+<td style="text-align:right">35 GB，加上量化元数据</td>
+</tr>
+</tbody>
+</table>
+<p>这张表解释了为什么 70B BF16 模型至少需要两张 80GB GPU，而 INT4 版本可能装入单张大显存 GPU。但“装入”不等于吞吐一定更高：量化 Kernel、反量化开销和硬件支持同样重要。</p>
+<h3 id="42-kv-cache-通用公式"><a class="markdownIt-Anchor" href="#42-kv-cache-通用公式"></a> 4.2 KV Cache 通用公式</h3>
+<p>每层都要为历史 Token 保存 K 和 V。设层数为 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>L</mi></mrow><annotation encoding="application/x-tex">L</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord mathnormal">L</span></span></span></span>，KV Head 数为 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>H</mi><mrow><mi>k</mi><mi>v</mi></mrow></msub></mrow><annotation encoding="application/x-tex">H_{kv}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.83333em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.08125em;">H</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.33610799999999996em;"><span style="top:-2.5500000000000003em;margin-left:-0.08125em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.03148em;">k</span><span class="mord mathnormal mtight" style="margin-right:0.03588em;">v</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span>，单头维度为 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>d</mi><mi>h</mi></msub></mrow><annotation encoding="application/x-tex">d_h</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.84444em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal">d</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.33610799999999996em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">h</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span>，缓存精度字节数为 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>b</mi></mrow><annotation encoding="application/x-tex">b</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.69444em;vertical-align:0em;"></span><span class="mord mathnormal">b</span></span></span></span>，则每个 Token 的 KV Cache 为：</p>
+<p class='katex-block'><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><msub><mi>M</mi><mrow><mi>K</mi><mi>V</mi><mi mathvariant="normal">/</mi><mi>t</mi><mi>o</mi><mi>k</mi><mi>e</mi><mi>n</mi></mrow></msub><mo>=</mo><mn>2</mn><mi>L</mi><msub><mi>H</mi><mrow><mi>k</mi><mi>v</mi></mrow></msub><msub><mi>d</mi><mi>h</mi></msub><mi>b</mi></mrow><annotation encoding="application/x-tex">M_{KV/token}=2LH_{kv}d_hb
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:1.03853em;vertical-align:-0.3551999999999999em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.10903em;">M</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.34480000000000005em;"><span style="top:-2.5198em;margin-left:-0.10903em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.07153em;">K</span><span class="mord mathnormal mtight" style="margin-right:0.22222em;">V</span><span class="mord mtight">/</span><span class="mord mathnormal mtight">t</span><span class="mord mathnormal mtight">o</span><span class="mord mathnormal mtight" style="margin-right:0.03148em;">k</span><span class="mord mathnormal mtight">e</span><span class="mord mathnormal mtight">n</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.3551999999999999em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:0.84444em;vertical-align:-0.15em;"></span><span class="mord">2</span><span class="mord mathnormal">L</span><span class="mord"><span class="mord mathnormal" style="margin-right:0.08125em;">H</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.33610799999999996em;"><span style="top:-2.5500000000000003em;margin-left:-0.08125em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.03148em;">k</span><span class="mord mathnormal mtight" style="margin-right:0.03588em;">v</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mord"><span class="mord mathnormal">d</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.33610799999999996em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">h</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mord mathnormal">b</span></span></span></span></span></p>
+<p>总 KV Cache 为：</p>
+<p class='katex-block'><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><msub><mi>M</mi><mrow><mi>K</mi><mi>V</mi></mrow></msub><mo>=</mo><mi>B</mi><mo>×</mo><mi>S</mi><mo>×</mo><mn>2</mn><mi>L</mi><msub><mi>H</mi><mrow><mi>k</mi><mi>v</mi></mrow></msub><msub><mi>d</mi><mi>h</mi></msub><mi>b</mi></mrow><annotation encoding="application/x-tex">M_{KV}=B\times S\times 2LH_{kv}d_hb
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.83333em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.10903em;">M</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.32833099999999993em;"><span style="top:-2.5500000000000003em;margin-left:-0.10903em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.07153em;">K</span><span class="mord mathnormal mtight" style="margin-right:0.22222em;">V</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:0.76666em;vertical-align:-0.08333em;"></span><span class="mord mathnormal" style="margin-right:0.05017em;">B</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:0.76666em;vertical-align:-0.08333em;"></span><span class="mord mathnormal" style="margin-right:0.05764em;">S</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:0.84444em;vertical-align:-0.15em;"></span><span class="mord">2</span><span class="mord mathnormal">L</span><span class="mord"><span class="mord mathnormal" style="margin-right:0.08125em;">H</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.33610799999999996em;"><span style="top:-2.5500000000000003em;margin-left:-0.08125em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.03148em;">k</span><span class="mord mathnormal mtight" style="margin-right:0.03588em;">v</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mord"><span class="mord mathnormal">d</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.33610799999999996em;"><span style="top:-2.5500000000000003em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">h</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mord mathnormal">b</span></span></span></span></span></p>
+<p>其中 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi></mrow><annotation encoding="application/x-tex">B</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord mathnormal" style="margin-right:0.05017em;">B</span></span></span></span> 是并发序列数，<span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>S</mi></mrow><annotation encoding="application/x-tex">S</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord mathnormal" style="margin-right:0.05764em;">S</span></span></span></span> 是已经缓存的平均序列长度。这里最容易被忽略的是：KV Cache 不只随上下文长度增长，也随并发数线性增长。</p>
+<p>以 32 层、32 个 KV Head、Head Dimension 为 128 的 BF16 模型为例：</p>
+<p class='katex-block'><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mn>2</mn><mo>×</mo><mn>32</mn><mo>×</mo><mn>32</mn><mo>×</mo><mn>128</mn><mo>×</mo><mn>2</mn><mo>=</mo><mn>524288</mn><mtext> Bytes</mtext></mrow><annotation encoding="application/x-tex">2\times32\times32\times128\times2=524288\text{ Bytes}
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.72777em;vertical-align:-0.08333em;"></span><span class="mord">2</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:0.72777em;vertical-align:-0.08333em;"></span><span class="mord">3</span><span class="mord">2</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:0.72777em;vertical-align:-0.08333em;"></span><span class="mord">3</span><span class="mord">2</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:0.72777em;vertical-align:-0.08333em;"></span><span class="mord">1</span><span class="mord">2</span><span class="mord">8</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:0.64444em;vertical-align:0em;"></span><span class="mord">2</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:0.8777699999999999em;vertical-align:-0.19444em;"></span><span class="mord">5</span><span class="mord">2</span><span class="mord">4</span><span class="mord">2</span><span class="mord">8</span><span class="mord">8</span><span class="mord text"><span class="mord"> Bytes</span></span></span></span></span></span></p>
+<p>即每个 Token、每个请求约 0.5 MiB。当并发为 16、序列长度为 4096 时，KV Cache 约为 32 GiB。这还没有计入模型权重和运行时空间。</p>
+<h3 id="43-gqa-为什么对推理系统格外重要"><a class="markdownIt-Anchor" href="#43-gqa-为什么对推理系统格外重要"></a> 4.3 GQA 为什么对推理系统格外重要</h3>
+<p>如果 Query Head 为 64，而 KV Head 只有 8，那么相对于同样使用 64 个 KV Head 的 MHA，KV Cache 可以缩小到原来的八分之一。</p>
+<p>这说明一个架构改动可能同时影响三个层面：</p>
+<ul>
+<li>模型层：多个 Query Head 共享 K/V；</li>
+<li>Kernel 层：Attention 的读取和线程映射发生变化；</li>
+<li>系统层：同一张 GPU 可以容纳更多并发请求。</li>
+</ul>
+<h2 id="五-把显存优化理解为交换"><a class="markdownIt-Anchor" href="#五-把显存优化理解为交换"></a> 五、把显存优化理解为交换</h2>
+<p>几乎所有显存优化都不是免费的。</p>
+<table>
+<thead>
+<tr>
+<th>技术</th>
+<th>主要节省对象</th>
+<th>付出的代价</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>混合精度</td>
+<td>权重、梯度、激活</td>
+<td>数值稳定性管理</td>
+</tr>
+<tr>
+<td>INT8/INT4 量化</td>
+<td>推理权重与带宽</td>
+<td>精度风险、专用 Kernel</td>
+</tr>
+<tr>
+<td>Activation Checkpointing</td>
+<td>训练激活</td>
+<td>反向时重计算</td>
+</tr>
+<tr>
+<td>ZeRO/FSDP</td>
+<td>参数、梯度、优化器状态</td>
+<td>更频繁的集合通信</td>
+</tr>
+<tr>
+<td>CPU/NVMe Offload</td>
+<td>GPU 静态状态</td>
+<td>PCIe/存储传输延迟</td>
+</tr>
+<tr>
+<td>GQA/MQA</td>
+<td>KV Cache</td>
+<td>模型表达能力与架构约束</td>
+</tr>
+<tr>
+<td>PagedAttention</td>
+<td>KV 碎片和预留浪费</td>
+<td>块表间接寻址与管理成本</td>
+</tr>
+<tr>
+<td>Prefix Cache</td>
+<td>重复前缀的 KV 与 Prefill</td>
+<td>哈希、淘汰和命中率管理</td>
+</tr>
+</tbody>
+</table>
+<p>做技术选型时，应该把问题改写成：“当前最稀缺的是显存、带宽、计算还是延迟？我愿意用什么资源交换？”</p>
+<h2 id="六-训练与推理的容量规划顺序"><a class="markdownIt-Anchor" href="#六-训练与推理的容量规划顺序"></a> 六、训练与推理的容量规划顺序</h2>
+<h3 id="61-训练"><a class="markdownIt-Anchor" href="#61-训练"></a> 6.1 训练</h3>
+<ol>
+<li>根据配置估算参数量；</li>
+<li>按优化器和精度计算静态状态；</li>
+<li>估算激活上界；</li>
+<li>判断是否必须进行参数分片；</li>
+<li>根据机器拓扑安排 TP、FSDP/DP 和 PP；</li>
+<li>留出通信 Buffer 与分配器碎片空间；</li>
+<li>用一个较小 Batch 实测峰值显存，再反推可用配置。</li>
+</ol>
+<h3 id="62-推理"><a class="markdownIt-Anchor" href="#62-推理"></a> 6.2 推理</h3>
+<ol>
+<li>计算权重显存；</li>
+<li>计算目标并发和上下文长度下的 KV Cache；</li>
+<li>为 CUDA Graph、Workspace 和框架预留空间；</li>
+<li>决定 TP 数量与量化格式；</li>
+<li>决定 <code>max_model_len</code>、并发上限和显存利用率；</li>
+<li>用真实 Prompt 长度分布压测，而不是只测固定短输入。</li>
+</ol>
+<h3 id="63-把公式固化成容量估算器"><a class="markdownIt-Anchor" href="#63-把公式固化成容量估算器"></a> 6.3 把公式固化成容量估算器</h3>
+<p>理论公式适合白板推导，工程上更适合把假设写入一个可以审计的小工具。下面的函数故意不调用任何深度学习框架，便于检查单位和输入：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass</span><br><span class="line"></span><br><span class="line">GIB = <span class="number">1024</span> ** <span class="number">3</span></span><br><span class="line"></span><br><span class="line"><span class="meta">@dataclass</span></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">ModelConfig</span>:</span><br><span class="line">    layers: <span class="built_in">int</span></span><br><span class="line">    hidden_size: <span class="built_in">int</span></span><br><span class="line">    query_heads: <span class="built_in">int</span></span><br><span class="line">    kv_heads: <span class="built_in">int</span></span><br><span class="line">    head_dim: <span class="built_in">int</span></span><br><span class="line">    parameters: <span class="built_in">int</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">weight_gib</span>(<span class="params">parameters: <span class="built_in">int</span>, bytes_per_weight: <span class="built_in">float</span></span>) -&gt; <span class="built_in">float</span>:</span><br><span class="line">    <span class="keyword">return</span> parameters * bytes_per_weight / GIB</span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">training_static_gib</span>(<span class="params">parameters: <span class="built_in">int</span>, bytes_per_parameter: <span class="built_in">float</span> = <span class="number">16</span></span>) -&gt; <span class="built_in">float</span>:</span><br><span class="line">    <span class="string">&quot;&quot;&quot;BF16 参数/梯度 + FP32 主权重 + Adam m/v 的常用近似。&quot;&quot;&quot;</span></span><br><span class="line">    <span class="keyword">return</span> parameters * bytes_per_parameter / GIB</span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">kv_cache_gib</span>(<span class="params"></span></span><br><span class="line"><span class="params">    cfg: ModelConfig,</span></span><br><span class="line"><span class="params">    batch_size: <span class="built_in">int</span>,</span></span><br><span class="line"><span class="params">    cached_tokens_per_request: <span class="built_in">int</span>,</span></span><br><span class="line"><span class="params">    bytes_per_element: <span class="built_in">int</span> = <span class="number">2</span>,</span></span><br><span class="line"><span class="params"></span>) -&gt; <span class="built_in">float</span>:</span><br><span class="line">    elements = (</span><br><span class="line">        <span class="number">2</span></span><br><span class="line">        * cfg.layers</span><br><span class="line">        * cfg.kv_heads</span><br><span class="line">        * cfg.head_dim</span><br><span class="line">        * batch_size</span><br><span class="line">        * cached_tokens_per_request</span><br><span class="line">    )</span><br><span class="line">    <span class="keyword">return</span> elements * bytes_per_element / GIB</span><br></pre></td></tr></table></figure>
+<p>这个估算器还没有考虑 TP 切分、量化 Scale、对齐、块内碎片和运行时 Workspace。它的意义不是取代框架，而是把“我们假设了什么”显式保存下来。实测峰值与理论值不一致时，就可以逐项寻找缺失状态。</p>
+<h2 id="七-技术-qa"><a class="markdownIt-Anchor" href="#七-技术-qa"></a> 七、技术 Q&amp;A</h2>
+<h3 id="q1为什么-7b-模型的-bf16-权重约-14gb标准-adamw-训练却可能超过-100gb"><a class="markdownIt-Anchor" href="#q1为什么-7b-模型的-bf16-权重约-14gb标准-adamw-训练却可能超过-100gb"></a> Q1：为什么 7B 模型的 BF16 权重约 14GB，标准 AdamW 训练却可能超过 100GB？</h3>
+<p>14GB 只计算了 <code>7B × 2 Bytes</code> 的模型权重。混合精度 AdamW 训练还要保存 BF16 梯度、FP32 主权重、FP32 一阶动量和 FP32 二阶动量，常用静态近似为 16 Bytes/参数，即约 112GB。实际训练还需要激活、临时张量、通信 Bucket 和 CUDA Runtime，所以 112GB 仍不是完整峰值。</p>
+<h3 id="q2为什么-gqa-对参数量影响有限却能显著降低-kv-cache"><a class="markdownIt-Anchor" href="#q2为什么-gqa-对参数量影响有限却能显著降低-kv-cache"></a> Q2：为什么 GQA 对参数量影响有限，却能显著降低 KV Cache？</h3>
+<p>GQA 只缩小 K、V 两个投影以及对应缓存，Attention 中 Q 和输出投影、FFN、Embedding 都没有同比缩小，所以总参数量下降有限。KV Cache 只保存每层 K/V，它与 <code>kv_heads</code> 成正比；KV Head 从 64 减到 8 时，这部分缓存理论上直接缩小八倍。</p>
+<h3 id="q3zero-3-activation-checkpointing-和-int4-量化分别解决什么状态"><a class="markdownIt-Anchor" href="#q3zero-3-activation-checkpointing-和-int4-量化分别解决什么状态"></a> Q3：ZeRO-3、Activation Checkpointing 和 INT4 量化分别解决什么状态？</h3>
+<p>ZeRO-3 分片训练期的参数、梯度和优化器状态；Activation Checkpointing 减少训练期保存的激活，用反向重计算交换显存；INT4 量化主要压缩推理权重，并降低权重读取带宽。三者作用对象不同，不能互相替代，但可以组合。</p>
+<h3 id="q4理论容量估算应该如何与运行时测量闭环"><a class="markdownIt-Anchor" href="#q4理论容量估算应该如何与运行时测量闭环"></a> Q4：理论容量估算应该如何与运行时测量闭环？</h3>
+<p>先用公式得到静态下界和动态上界，再在目标硬件上分别测启动后、Prefill 峰值、Decode 稳态和压力场景峰值。PyTorch 可结合 <code>memory_allocated</code>、<code>memory_reserved</code>、Memory Snapshot 与 Profiler；推理引擎还应记录 KV Block 数、抢占次数和缓存命中率。理论模型负责解释，运行测量负责校准。</p>
+<h2 id="八-系列导航"><a class="markdownIt-Anchor" href="#八-系列导航"></a> 八、系列导航</h2>
+<p>下一篇：<a href="/2026/07/30/llm-token-journey/" title="LLM 自回归推理的执行路径：从 Tokenization 到 Continuous Batching">LLM 自回归推理的执行路径</a></p>
+<h2 id="九-参考资料"><a class="markdownIt-Anchor" href="#九-参考资料"></a> 九、参考资料</h2>
+<h3 id="原始论文与技术报告"><a class="markdownIt-Anchor" href="#原始论文与技术报告"></a> 原始论文与技术报告</h3>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/1706.03762">Attention Is All You Need</a>：Transformer 参数结构和计算路径的起点。</li>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2307.09288">LLaMA 2: Open Foundation and Fine-Tuned Chat Models</a>：用于对照真实 Decoder-only 模型配置。</li>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/1910.02054">ZeRO: Memory Optimizations Toward Training Trillion Parameter Models</a>：训练状态分片的核心论文。</li>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2304.11277">PyTorch FSDP: Experiences on Scaling Fully Sharded Data Parallel</a>：FSDP 的工程经验与扩展性分析。</li>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2305.13245">GQA: Training Generalized Multi-Query Transformer Models</a>：理解 KV Head 数量与 KV Cache 的关系。</li>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2309.06180">Efficient Memory Management for Large Language Model Serving with PagedAttention</a>：推理阶段 KV Cache 分页管理。</li>
+</ul>
+<h3 id="文档与进一步阅读"><a class="markdownIt-Anchor" href="#文档与进一步阅读"></a> 文档与进一步阅读</h3>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://blog.eleuther.ai/transformer-math/">Transformer Math 101</a>：参数量、FLOPs 和训练资源估算。</li>
+<li><a target="_blank" rel="noopener" href="https://docs.pytorch.org/docs/stable/fsdp.html">PyTorch FSDP Documentation</a>：分片策略和运行时行为。</li>
+<li><a target="_blank" rel="noopener" href="https://docs.vllm.ai/">vLLM Documentation</a>：推理显存参数与实际部署选项。</li>
+<li><a target="_blank" rel="noopener" href="https://resources.nvidia.com/en-us-tensor-core">NVIDIA H100 Tensor Core GPU Architecture</a>：硬件显存、带宽和互联规格。</li>
+<li><a target="_blank" rel="noopener" href="https://github.com/caomaolufei/AIInfraGuide">AIInfraGuide</a>：Transformer 参数、训练显存、ZeRO/FSDP 与 KV Cache 的中文技术资料，MIT License。</li>
+</ul>
+
+      
+    </div>
+    <div class="article-footer">
+      
+
+    </div>
+  </article>
+  
+</div>
+
+  <nav class="bar bar-footer clearfix" data-stick-bottom>
+  <div class="bar-inner">
+  
+  <ul class="pager pull-left">
+    
+    <li class="prev">
+      <a href="/2026/07/30/llm-token-journey/" title="LLM 自回归推理的执行路径：从 Tokenization 到 Continuous Batching"><i class="icon icon-angle-left" aria-hidden="true"></i><span>&nbsp;&nbsp;Newer</span></a>
+    </li>
+    
+    
+    <li class="next">
+      <a href="/2024/06/29/kubernetes-lab-notes/" title="Kubernetes 实践：集群安装与应用部署"><span>Older&nbsp;&nbsp;</span><i class="icon icon-angle-right" aria-hidden="true"></i></a>
+    </li>
+    
+    
+  </ul>
+  
+  
+  
+  <div class="bar-right">
+    
+  </div>
+  </div>
+</nav>
+  
+
+
+
+</main>
+
+  <footer class="footer" itemscope itemtype="http://schema.org/WPFooter">
+	
+	
+    <ul class="social-links">
+    	
+        <li><a href="https://github.com/zhouzhq2021" target="_blank" title="Github" data-toggle=tooltip data-placement=top><i class="icon icon-github"></i></a></li>
+        
+        <li><a href="mailto:zhouzhq2021@sjtu.edu.cn" target="_blank" title="Email" data-toggle=tooltip data-placement=top><i class="icon icon-email"></i></a></li>
+        
+        <li><a href="/atom.xml" target="_blank" title="Rss" data-toggle=tooltip data-placement=top><i class="icon icon-rss"></i></a></li>
+        
+    </ul>
+
+    <div class="copyright">
+    	
+        &copy; 2026 Zhongquan Zhou
+        
+        <div class="publishby">
+        	Theme by <a href="https://github.com/cofess" target="_blank"> cofess </a>base on <a href="https://github.com/cofess/hexo-theme-pure" target="_blank">pure</a>.
+        </div>
+    </div>
+</footer>
+  <script src="//cdn.jsdelivr.net/npm/jquery@1.12.4/dist/jquery.min.js"></script>
+<script>
+window.jQuery || document.write('<script src="js/jquery.min.js"><\/script>')
+</script>
+
+<script src="/js/plugin.min.js"></script>
+
+
+<script src="/js/application.js"></script>
+
+
+    <script>
+(function (window) {
+    var INSIGHT_CONFIG = {
+        TRANSLATION: {
+            POSTS: 'Posts',
+            PAGES: 'Pages',
+            CATEGORIES: 'Categories',
+            TAGS: 'Tags',
+            UNTITLED: '(Untitled)',
+        },
+        ROOT_URL: '/',
+        CONTENT_URL: '/content.json',
+    };
+    window.INSIGHT_CONFIG = INSIGHT_CONFIG;
+})(window);
+</script>
+
+<script src="/js/insight.js"></script>
+
+
+
+
+
+
+   
+<script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+
+  <script src="//cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.3.5/dist/jquery.fancybox.min.js"></script>
+  <script>
+  //利用 FancyBox 实现点击图片放大
+  $(document).ready(function() {
+    $('article img').not('[hidden]').not('.panel-body img').each(function() {
+      var $image = $(this);
+      var imageCaption = $image.attr('alt');
+      var $imageWrapLink = $image.parent('a');
+      if ($imageWrapLink.length < 1) {
+        var src = this.getAttribute('src');
+        var idx = src.lastIndexOf('?');
+        if (idx != -1) {
+          src = src.substring(0, idx);
+        }
+        $imageWrapLink = $image.wrap('<a href="' + src + '"></a>').parent('a');
+      }
+      $imageWrapLink.attr('data-fancybox', 'images');
+      if (imageCaption) {
+        $imageWrapLink.attr('data-caption', imageCaption);
+      }
+    });
+    $().fancybox({
+      selector: '[data-fancybox="images"]',
+      hash: false,
+      loop: false,
+    });
+  });
+  </script>
+
+
+
+
+
+</body>
+</html>

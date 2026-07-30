@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="500" viewBox="0 0 1200 500">
+  <rect width="1200" height="500" fill="#f8fafc"/>
+  <style>.title{font-family:'Droid Sans Fallback',sans-serif;font-size:28px;font-weight:700;fill:#0f172a}.h{font-family:'Droid Sans Fallback',sans-serif;font-size:18px;font-weight:700;fill:#1e293b}.s{font-family:'Droid Sans Fallback',sans-serif;font-size:15px;fill:#475569}.w{font-family:'Droid Sans Fallback',sans-serif;font-size:16px;font-weight:700;fill:#fff}</style>
+  <text x="600" y="42" text-anchor="middle" class="title">Static Batching 与 Continuous Batching 的槽位利用率</text>
+  <text x="45" y="98" class="h">Static</text><text x="45" y="123" class="s">等待最长请求结束</text>
+  <g transform="translate(170,70)">
+    <rect width="140" height="42" fill="#2563eb"/><text x="70" y="27" text-anchor="middle" class="w">A</text><rect x="140" width="140" height="42" fill="#dbeafe"/><rect x="280" width="140" height="42" fill="#dbeafe"/><rect x="420" width="140" height="42" fill="#dbeafe"/><rect x="560" width="140" height="42" fill="#dbeafe"/><rect x="700" width="140" height="42" fill="#dbeafe"/><rect x="840" width="140" height="42" fill="#dbeafe"/>
+    <rect y="48" width="280" height="42" fill="#4f46e5"/><text x="140" y="75" text-anchor="middle" class="w">B</text><rect x="280" y="48" width="700" height="42" fill="#e0e7ff"/>
+    <rect y="96" width="560" height="42" fill="#7c3aed"/><text x="280" y="123" text-anchor="middle" class="w">C</text><rect x="560" y="96" width="420" height="42" fill="#ede9fe"/>
+    <rect y="144" width="980" height="42" fill="#be185d"/><text x="490" y="171" text-anchor="middle" class="w">D</text>
+  </g>
+  <text x="45" y="310" class="h">Continuous</text><text x="45" y="335" class="s">完成即退、随到随拼</text>
+  <g transform="translate(170,280)">
+    <rect width="140" height="42" fill="#2563eb"/><text x="70" y="27" text-anchor="middle" class="w">A</text><rect x="140" width="280" height="42" fill="#0ea5e9"/><text x="280" y="27" text-anchor="middle" class="w">E</text><rect x="420" width="280" height="42" fill="#059669"/><text x="560" y="27" text-anchor="middle" class="w">G</text><rect x="700" width="280" height="42" fill="#ea580c"/><text x="840" y="27" text-anchor="middle" class="w">J</text>
+    <rect y="48" width="280" height="42" fill="#4f46e5"/><text x="140" y="75" text-anchor="middle" class="w">B</text><rect x="280" y="48" width="280" height="42" fill="#0891b2"/><text x="420" y="75" text-anchor="middle" class="w">F</text><rect x="560" y="48" width="420" height="42" fill="#65a30d"/><text x="770" y="75" text-anchor="middle" class="w">H</text>
+    <rect y="96" width="560" height="42" fill="#7c3aed"/><text x="280" y="123" text-anchor="middle" class="w">C</text><rect x="560" y="96" width="420" height="42" fill="#d97706"/><text x="770" y="123" text-anchor="middle" class="w">I</text>
+    <rect y="144" width="980" height="42" fill="#be185d"/><text x="490" y="171" text-anchor="middle" class="w">D</text>
+  </g>
+  <g transform="translate(170,452)" class="s"><text x="0">时间 →</text><text x="305">浅色区域表示请求已经完成但槽位仍被固定 Batch 占用</text></g>
+</svg>

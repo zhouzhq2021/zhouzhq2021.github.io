@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang=en>
+<head>
+  <meta charset="utf-8">
+  
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, minimal-ui">
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="Cache-Control" content="no-transform" />
+  <meta http-equiv="Cache-Control" content="no-siteapp" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="format-detection" content="telephone=no,email=no,adress=no">
+  <!-- Color theme for statusbar -->
+  <meta name="theme-color" content="#000000" />
+  <!-- 强制页面在当前窗口以独立页面显示,防止别人在框架里调用页面 -->
+  <meta http-equiv="window-target" content="_top" />
+  
+  
+  <title>GPU 性能分析方法：Roofline 模型、CUDA 内存层次与 Nsight | Zhongquan Zhou&#39;s Blog</title>
+  <meta name="description" content="看到 GPU 利用率不高，常见反应是增大 Block、提高 Occupancy、做算子融合或者直接换成 Triton。但这些动作如果没有性能模型支撑，很可能只是把瓶颈从一个地方搬到另一个地方。 可靠的优化过程应该像故障诊断：先建立理论上限，再用工具验证瓶颈，最后用实验确认收益。本文用同一套方法串起 Vector Add、Reduce、GEMM、Softmax、FlashAttention 和 LL">
+<meta property="og:type" content="article">
+<meta property="og:title" content="GPU 性能分析方法：Roofline 模型、CUDA 内存层次与 Nsight">
+<meta property="og:url" content="https://zhouzhq2021.github.io/2026/07/30/ai-infra-roofline-profiling/index.html">
+<meta property="og:site_name" content="Zhongquan Zhou&#39;s Blog">
+<meta property="og:description" content="看到 GPU 利用率不高，常见反应是增大 Block、提高 Occupancy、做算子融合或者直接换成 Triton。但这些动作如果没有性能模型支撑，很可能只是把瓶颈从一个地方搬到另一个地方。 可靠的优化过程应该像故障诊断：先建立理论上限，再用工具验证瓶颈，最后用实验确认收益。本文用同一套方法串起 Vector Add、Reduce、GEMM、Softmax、FlashAttention 和 LL">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ai-infra-series/gpu-hardware-architecture.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ai-infra-series/cuda-memory-hierarchy.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ai-infra-series/reduce-warp-shuffle.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ai-infra-series/gemm-thread-tiling.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ai-infra-series/coalesced-access.png">
+<meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ai-infra-series/flashattention-io.jpg">
+<meta property="article:published_time" content="2026-07-30T02:20:00.000Z">
+<meta property="article:modified_time" content="2026-07-30T03:24:28.826Z">
+<meta property="article:author" content="Zhongquan Zhou">
+<meta property="article:tag" content="AI Infra">
+<meta property="article:tag" content="AI Infra Engineering Series">
+<meta property="article:tag" content="CUDA">
+<meta property="article:tag" content="Performance Profiling">
+<meta property="article:tag" content="Nsight">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://zhouzhq2021.github.io/images/posts/ai-infra-series/gpu-hardware-architecture.png">
+  <!-- Canonical links -->
+  <link rel="canonical" href="https://zhouzhq2021.github.io/2026/07/30/ai-infra-roofline-profiling/index.html">
+  
+    <link rel="alternate" href="/atom.xml" title="Zhongquan Zhou&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+  
+  
+    <link href="//cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.3.5/dist/jquery.fancybox.min.css" rel="stylesheet">
+  
+  
+    <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1.4.0/dist/gitalk.min.css">
+  
+  <link rel="stylesheet" type="text/css" href="/css/custom.css">
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body class="main-center" itemscope itemtype="http://schema.org/WebPage">
+  <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+  <div class="slimContent">
+    <div class="navbar-header">
+      
+      
+      <div class="profile-block text-center">
+        <a id="avatar" href="https://github.com/zhouzhq2021" target="_blank">
+          <img class="img-circle img-rotate" src="/images/avatar-20260605.jpg" width="200" height="200">
+        </a>
+        <h2 id="name" class="hidden-xs hidden-sm">Zhongquan Zhou</h2>
+        <h3 id="title" class="hidden-xs hidden-sm hidden-md">Computer Science Graduate Student @ Shanghai Jiao Tong University</h3>
+        <small id="location" class="text-muted hidden-xs hidden-sm"><i class="icon icon-map-marker"></i> Shanghai, China</small>
+      </div>
+      
+      <div class="search" id="search-form-wrap">
+
+    <form class="search-form sidebar-form">
+        <div class="input-group">
+            <input type="text" class="search-form-input form-control" placeholder="Search" />
+            <span class="input-group-btn">
+                <button type="submit" class="search-form-submit btn btn-flat" onclick="return false;"><i class="icon icon-search"></i></button>
+            </span>
+        </div>
+    </form>
+    <div class="ins-search">
+  <div class="ins-search-mask"></div>
+  <div class="ins-search-container">
+    <div class="ins-input-wrapper">
+      <input type="text" class="ins-search-input" placeholder="Type something..." x-webkit-speech />
+      <button type="button" class="close ins-close ins-selectable" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">×</span></button>
+    </div>
+    <div class="ins-section-wrapper">
+      <div class="ins-section-container"></div>
+    </div>
+  </div>
+</div>
+
+
+</div>
+      <button class="navbar-toggle collapsed" type="button" data-toggle="collapse" data-target="#main-navbar" aria-controls="main-navbar" aria-expanded="false">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+    </div>
+    <nav id="main-navbar" class="collapse navbar-collapse" itemscope itemtype="http://schema.org/SiteNavigationElement" role="navigation">
+      <ul class="nav navbar-nav main-nav menu-highlight">
+        
+        
+        <li class="menu-item menu-item-home">
+          <a href="/.">
+            
+            <i class="icon icon-home-fill"></i>
+            
+            <span class="menu-title">Home</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories">
+            
+            <i class="icon icon-folder"></i>
+            
+            <span class="menu-title">Categories</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags">
+            
+            <i class="icon icon-tags"></i>
+            
+            <span class="menu-title">Tags</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-repository">
+          <a href="/repository">
+            
+            <i class="icon icon-project"></i>
+            
+            <span class="menu-title">Repository</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-books">
+          <a href="/books">
+            
+            <i class="icon icon-book-fill"></i>
+            
+            <span class="menu-title">Books</span>
+          </a>
+        </li>
+        
+        
+        <li class="menu-item menu-item-links">
+          <a href="/links">
+            
+            <i class="icon icon-friendship"></i>
+            
+            <span class="menu-title">Links</span>
+          </a>
+        </li>
+        
+      </ul>
+      
+	
+    <ul class="social-links">
+    	
+        <li><a href="https://github.com/zhouzhq2021" target="_blank" title="Github" data-toggle=tooltip data-placement=top><i class="icon icon-github"></i></a></li>
+        
+        <li><a href="mailto:zhouzhq2021@sjtu.edu.cn" target="_blank" title="Email" data-toggle=tooltip data-placement=top><i class="icon icon-email"></i></a></li>
+        
+        <li><a href="/atom.xml" target="_blank" title="Rss" data-toggle=tooltip data-placement=top><i class="icon icon-rss"></i></a></li>
+        
+    </ul>
+
+    </nav>
+  </div>
+</header>
+
+  
+    <aside class="sidebar" itemscope itemtype="http://schema.org/WPSideBar">
+  <div class="slimContent">
+    
+      <div class="widget">
+    <h3 class="widget-title">Board</h3>
+    <div class="widget-body">
+        <div id="board">
+            <div class="content">
+                <p>Welcome to my personal blog! Feel free to explore and share your thoughts!</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Contact</h3>
+    <div class="widget-body">
+      <ul class="sidebar-simple-list">
+        
+          
+          <li>
+            <span class="sidebar-contact-label">Email</span>
+            
+              <a href="mailto:zhouzhq2021@sjtu.edu.cn">zhouzhq2021@sjtu.edu.cn</a>
+            
+          </li>
+        
+          
+          <li>
+            <span class="sidebar-contact-label">GitHub</span>
+            
+              <a href="https://github.com/zhouzhq2021" target="_blank">github.com/zhouzhq2021</a>
+            
+          </li>
+        
+          
+          <li>
+            <span class="sidebar-contact-label">Location</span>
+            
+              <span>Shanghai, China</span>
+            
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Categories</h3>
+    <div class="widget-body">
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/AI-Infrastructure/">AI Infrastructure</a><span class="category-list-count">7</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/Cloud-Computing-and-Big-Data/">Cloud Computing and Big Data</a><span class="category-list-count">4</span></li></ul>
+    </div>
+  </div>
+
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Tags</h3>
+    <div class="widget-body">
+      <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/AI-Infra/" rel="tag">AI Infra</a><span class="tag-list-count">7</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/AI-Infra-Engineering-Series/" rel="tag">AI Infra Engineering Series</a><span class="tag-list-count">7</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Benchmark/" rel="tag">Benchmark</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/CUDA/" rel="tag">CUDA</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Capacity-Planning/" rel="tag">Capacity Planning</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Ceph/" rel="tag">Ceph</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Distributed-Training/" rel="tag">Distributed Training</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/FSDP/" rel="tag">FSDP</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/FlashAttention/" rel="tag">FlashAttention</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/GPU-Memory/" rel="tag">GPU Memory</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Hadoop/" rel="tag">Hadoop</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Kubernetes/" rel="tag">Kubernetes</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/LLM-Inference/" rel="tag">LLM Inference</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/LLM-Serving/" rel="tag">LLM Serving</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/NCCL/" rel="tag">NCCL</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Nsight/" rel="tag">Nsight</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Numerical-Stability/" rel="tag">Numerical Stability</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/OpenStack/" rel="tag">OpenStack</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/PagedAttention/" rel="tag">PagedAttention</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Performance-Profiling/" rel="tag">Performance Profiling</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Softmax/" rel="tag">Softmax</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Transformer/" rel="tag">Transformer</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/vLLM/" rel="tag">vLLM</a><span class="tag-list-count">2</span></li></ul>
+    </div>
+  </div>
+
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Tag Cloud</h3>
+    <div class="widget-body tagcloud">
+      <a href="/tags/AI-Infra/" style="font-size: 14px;">AI Infra</a> <a href="/tags/AI-Infra-Engineering-Series/" style="font-size: 14px;">AI Infra Engineering Series</a> <a href="/tags/Benchmark/" style="font-size: 13px;">Benchmark</a> <a href="/tags/CUDA/" style="font-size: 13px;">CUDA</a> <a href="/tags/Capacity-Planning/" style="font-size: 13px;">Capacity Planning</a> <a href="/tags/Ceph/" style="font-size: 13px;">Ceph</a> <a href="/tags/Distributed-Training/" style="font-size: 13.5px;">Distributed Training</a> <a href="/tags/FSDP/" style="font-size: 13px;">FSDP</a> <a href="/tags/FlashAttention/" style="font-size: 13px;">FlashAttention</a> <a href="/tags/GPU-Memory/" style="font-size: 13px;">GPU Memory</a> <a href="/tags/Hadoop/" style="font-size: 13px;">Hadoop</a> <a href="/tags/Kubernetes/" style="font-size: 13px;">Kubernetes</a> <a href="/tags/LLM-Inference/" style="font-size: 13.5px;">LLM Inference</a> <a href="/tags/LLM-Serving/" style="font-size: 13.5px;">LLM Serving</a> <a href="/tags/NCCL/" style="font-size: 13px;">NCCL</a> <a href="/tags/Nsight/" style="font-size: 13px;">Nsight</a> <a href="/tags/Numerical-Stability/" style="font-size: 13px;">Numerical Stability</a> <a href="/tags/OpenStack/" style="font-size: 13px;">OpenStack</a> <a href="/tags/PagedAttention/" style="font-size: 13px;">PagedAttention</a> <a href="/tags/Performance-Profiling/" style="font-size: 13px;">Performance Profiling</a> <a href="/tags/Softmax/" style="font-size: 13px;">Softmax</a> <a href="/tags/Transformer/" style="font-size: 13px;">Transformer</a> <a href="/tags/vLLM/" style="font-size: 13.5px;">vLLM</a>
+    </div>
+  </div>
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Archive</h3>
+    <div class="widget-body">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2026/07/">July 2026</a><span class="archive-list-count">7</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2024/06/">June 2024</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2024/05/">May 2024</a><span class="archive-list-count">2</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2024/04/">April 2024</a><span class="archive-list-count">1</span></li></ul>
+    </div>
+  </div>
+
+
+    
+      
+  <div class="widget">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget-body">
+      <ul class="recent-post-list list-unstyled ">
+        
+          <li>
+            
+            <div class="item-thumb">
+              <a href="/2026/07/30/llm-70b-capacity-planning/" class="thumb">
+    
+    
+        <span class="thumb-image thumb-none"></span>
+    
+</a>
+
+            </div>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/AI-Infrastructure/">AI Infrastructure</a>
+              </p>
+              <p class="item-title">
+                <a href="/2026/07/30/llm-70b-capacity-planning/" class="title">70B 大模型推理服务的容量规划与性能设计</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2026-07-30T03:00:00.000Z" itemprop="datePublished">2026-07-30</time>
+              </p>
+            </div>
+          </li>
+          
+          <li>
+            
+            <div class="item-thumb">
+              <a href="/2026/07/30/numerical-stability-to-flashattention/" class="thumb">
+    
+    
+        <span class="thumb-image thumb-none"></span>
+    
+</a>
+
+            </div>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/AI-Infrastructure/">AI Infrastructure</a>
+              </p>
+              <p class="item-title">
+                <a href="/2026/07/30/numerical-stability-to-flashattention/" class="title">Softmax 数值稳定性与 IO-Aware Attention：从在线归一化到 FlashAttention</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2026-07-30T02:50:00.000Z" itemprop="datePublished">2026-07-30</time>
+              </p>
+            </div>
+          </li>
+          
+          <li>
+            
+            <div class="item-thumb">
+              <a href="/2026/07/30/distributed-training-from-allreduce/" class="thumb">
+    
+    
+        <span class="thumb-image thumb-none"></span>
+    
+</a>
+
+            </div>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/AI-Infrastructure/">AI Infrastructure</a>
+              </p>
+              <p class="item-title">
+                <a href="/2026/07/30/distributed-training-from-allreduce/" class="title">分布式训练的通信模型：从集合通信到多维并行</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2026-07-30T02:40:00.000Z" itemprop="datePublished">2026-07-30</time>
+              </p>
+            </div>
+          </li>
+          
+          <li>
+            
+            <div class="item-thumb">
+              <a href="/2026/07/30/llm-serving-as-operating-system/" class="thumb">
+    
+    
+        <span class="thumb-image thumb-none"></span>
+    
+</a>
+
+            </div>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/AI-Infrastructure/">AI Infrastructure</a>
+              </p>
+              <p class="item-title">
+                <a href="/2026/07/30/llm-serving-as-operating-system/" class="title">LLM 推理引擎的内存管理与调度：PagedAttention、Prefix Cache 与 Continuous Batching</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2026-07-30T02:30:00.000Z" itemprop="datePublished">2026-07-30</time>
+              </p>
+            </div>
+          </li>
+          
+          <li>
+            
+            <div class="item-thumb">
+              <a href="/2026/07/30/ai-infra-roofline-profiling/" class="thumb">
+    
+    
+        <span class="thumb-image thumb-none"></span>
+    
+</a>
+
+            </div>
+            
+            <div class="item-inner">
+              <p class="item-category">
+                <a class="category-link" href="/categories/AI-Infrastructure/">AI Infrastructure</a>
+              </p>
+              <p class="item-title">
+                <a href="/2026/07/30/ai-infra-roofline-profiling/" class="title">GPU 性能分析方法：Roofline 模型、CUDA 内存层次与 Nsight</a>
+              </p>
+              <p class="item-date">
+                <time datetime="2026-07-30T02:20:00.000Z" itemprop="datePublished">2026-07-30</time>
+              </p>
+            </div>
+          </li>
+          
+      </ul>
+    </div>
+  </div>
+  
+
+    
+  </div>
+</aside>
+
+  
+  
+<main class="main" role="main">
+  <div class="content">
+  <article id="post-ai-infra-roofline-profiling" class="article article-type-post" itemscope itemtype="http://schema.org/BlogPosting">
+    
+    <div class="article-header">
+      
+        
+  
+    <h1 class="article-title" itemprop="name">
+      GPU 性能分析方法：Roofline 模型、CUDA 内存层次与 Nsight
+    </h1>
+  
+
+      
+      <div class="article-meta">
+        <span class="article-date">
+    <i class="icon icon-calendar-check"></i>
+	<a href="/2026/07/30/ai-infra-roofline-profiling/" class="article-date">
+	  <time datetime="2026-07-30T02:20:00.000Z" itemprop="datePublished">2026-07-30</time>
+	</a>
+</span>
+        
+  <span class="article-category">
+    <i class="icon icon-folder"></i>
+    <a class="article-category-link" href="/categories/AI-Infrastructure/">AI Infrastructure</a>
+  </span>
+
+        
+  <span class="article-tag">
+    <i class="icon icon-tags"></i>
+	<a class="article-tag-link-link" href="/tags/AI-Infra/" rel="tag">AI Infra</a>, <a class="article-tag-link-link" href="/tags/AI-Infra-Engineering-Series/" rel="tag">AI Infra Engineering Series</a>, <a class="article-tag-link-link" href="/tags/CUDA/" rel="tag">CUDA</a>, <a class="article-tag-link-link" href="/tags/Nsight/" rel="tag">Nsight</a>, <a class="article-tag-link-link" href="/tags/Performance-Profiling/" rel="tag">Performance Profiling</a>
+  </span>
+
+
+        
+	<span class="article-read hidden-xs">
+	    <i class="icon icon-eye-fill" aria-hidden="true"></i>
+	    <span id="busuanzi_container_page_pv">
+			<span id="busuanzi_value_page_pv">0</span>
+		</span>
+	</span>
+
+
+        
+        
+	
+		<span class="post-wordcount hidden-xs" itemprop="wordCount">Word Count: 3k(words)</span>
+	
+	
+		<span class="post-readcount hidden-xs" itemprop="timeRequired">Read Count: 11(minutes)</span>
+	
+
+      </div>
+    </div>
+    <div class="article-entry marked-body" itemprop="articleBody">
+      
+        <p>看到 GPU 利用率不高，常见反应是增大 Block、提高 Occupancy、做算子融合或者直接换成 Triton。但这些动作如果没有性能模型支撑，很可能只是把瓶颈从一个地方搬到另一个地方。</p>
+<p>可靠的优化过程应该像故障诊断：先建立理论上限，再用工具验证瓶颈，最后用实验确认收益。本文用同一套方法串起 Vector Add、Reduce、GEMM、Softmax、FlashAttention 和 LLM Decode。</p>
+<p><img src="/images/posts/ai-infra-series/gpu-hardware-architecture.png" alt="GPU 硬件结构" /></p>
+<p><em>图 1：GPU 性能分析的对象不是抽象的“核”，而是 SM、执行单元和多级存储共同组成的系统。</em></p>
+<h2 id="一-性能问题先写成两个数字"><a class="markdownIt-Anchor" href="#一-性能问题先写成两个数字"></a> 一、性能问题先写成两个数字</h2>
+<p>对一个 Kernel，先估算：</p>
+<ul>
+<li>总计算量：FLOPs；</li>
+<li>最少数据搬运量：Bytes。</li>
+</ul>
+<p>两者之比称为算术强度：</p>
+<p class='katex-block'><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>I</mi><mo>=</mo><mfrac><mtext>FLOPs</mtext><mtext>Bytes</mtext></mfrac></mrow><annotation encoding="application/x-tex">I=\frac{\text{FLOPs}}{\text{Bytes}}
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord mathnormal" style="margin-right:0.07847em;">I</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:2.2407700000000004em;vertical-align:-0.8804400000000001em;"></span><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.36033em;"><span style="top:-2.314em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord text"><span class="mord">Bytes</span></span></span></span><span style="top:-3.23em;"><span class="pstrut" style="height:3em;"></span><span class="frac-line" style="border-bottom-width:0.04em;"></span></span><span style="top:-3.677em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord text"><span class="mord">FLOPs</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.8804400000000001em;"><span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span></span></span></span></span></p>
+<p>如果一个操作只做很少计算，却要从 HBM 读取大量数据，它通常受带宽限制；如果每次读取的数据会被重复使用很多次，它更可能受计算吞吐限制。</p>
+<h3 id="11-vector-add"><a class="markdownIt-Anchor" href="#11-vector-add"></a> 1.1 Vector Add</h3>
+<p>计算 <code>C[i] = A[i] + B[i]</code>，每个元素读取两个 FP32、写回一个 FP32，共 12 Bytes，只执行一次加法：</p>
+<p class='katex-block'><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>I</mi><mo>≈</mo><mfrac><mn>1</mn><mn>12</mn></mfrac><mtext> FLOPs/Byte</mtext></mrow><annotation encoding="application/x-tex">I\approx\frac{1}{12}\text{ FLOPs/Byte}
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord mathnormal" style="margin-right:0.07847em;">I</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">≈</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:2.00744em;vertical-align:-0.686em;"></span><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.32144em;"><span style="top:-2.314em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord">1</span><span class="mord">2</span></span></span><span style="top:-3.23em;"><span class="pstrut" style="height:3em;"></span><span class="frac-line" style="border-bottom-width:0.04em;"></span></span><span style="top:-3.677em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord">1</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.686em;"><span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span><span class="mord text"><span class="mord"> FLOPs/Byte</span></span></span></span></span></span></p>
+<p>这是典型的 Memory Bound 操作。继续增加算术单元不会明显加速，关键是合并访问、足够并发和接近峰值显存带宽。</p>
+<h3 id="12-gemm"><a class="markdownIt-Anchor" href="#12-gemm"></a> 1.2 GEMM</h3>
+<p>矩阵乘法包含大量乘加。如果通过 Shared Memory 和寄存器 Tiling 让数据被多次复用，算术强度可以大幅提高，最终接近 Compute Bound。</p>
+<p>这两类操作构成了 Roofline 图上的两个极端。</p>
+<h2 id="二-roofline先判断优化方向"><a class="markdownIt-Anchor" href="#二-roofline先判断优化方向"></a> 二、Roofline：先判断优化方向</h2>
+<p><img src="/images/posts/ai-infra-series/cuda-memory-hierarchy.png" alt="CUDA 内存层次" /></p>
+<p><em>图 2：Roofline 中的“Bytes”来自不同存储层次；减少 HBM 流量和提高片上复用往往比减少一条算术指令更重要。</em></p>
+<p>Roofline 模型给出的性能上限为：</p>
+<p class='katex-block'><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>P</mi><mo>≤</mo><mi>min</mi><mo>⁡</mo><mo stretchy="false">(</mo><msub><mi>P</mi><mrow><mi>p</mi><mi>e</mi><mi>a</mi><mi>k</mi></mrow></msub><mo separator="true">,</mo><mi>I</mi><mo>×</mo><mi>B</mi><msub><mi>W</mi><mrow><mi>p</mi><mi>e</mi><mi>a</mi><mi>k</mi></mrow></msub><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">P\leq\min(P_{peak}, I\times BW_{peak})
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8193em;vertical-align:-0.13597em;"></span><span class="mord mathnormal" style="margin-right:0.13889em;">P</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">≤</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:1.036108em;vertical-align:-0.286108em;"></span><span class="mop">min</span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal" style="margin-right:0.13889em;">P</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361079999999999em;"><span style="top:-2.5500000000000003em;margin-left:-0.13889em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">p</span><span class="mord mathnormal mtight">e</span><span class="mord mathnormal mtight">a</span><span class="mord mathnormal mtight" style="margin-right:0.03148em;">k</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.286108em;"><span></span></span></span></span></span></span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.16666666666666666em;"></span><span class="mord mathnormal" style="margin-right:0.07847em;">I</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:1.036108em;vertical-align:-0.286108em;"></span><span class="mord mathnormal" style="margin-right:0.05017em;">B</span><span class="mord"><span class="mord mathnormal" style="margin-right:0.13889em;">W</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361079999999999em;"><span style="top:-2.5500000000000003em;margin-left:-0.13889em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">p</span><span class="mord mathnormal mtight">e</span><span class="mord mathnormal mtight">a</span><span class="mord mathnormal mtight" style="margin-right:0.03148em;">k</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.286108em;"><span></span></span></span></span></span></span><span class="mclose">)</span></span></span></span></span></p>
+<p>其中 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>P</mi><mrow><mi>p</mi><mi>e</mi><mi>a</mi><mi>k</mi></mrow></msub></mrow><annotation encoding="application/x-tex">P_{peak}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.969438em;vertical-align:-0.286108em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.13889em;">P</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361079999999999em;"><span style="top:-2.5500000000000003em;margin-left:-0.13889em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">p</span><span class="mord mathnormal mtight">e</span><span class="mord mathnormal mtight">a</span><span class="mord mathnormal mtight" style="margin-right:0.03148em;">k</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.286108em;"><span></span></span></span></span></span></span></span></span></span> 是峰值计算吞吐，<span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi><msub><mi>W</mi><mrow><mi>p</mi><mi>e</mi><mi>a</mi><mi>k</mi></mrow></msub></mrow><annotation encoding="application/x-tex">BW_{peak}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.969438em;vertical-align:-0.286108em;"></span><span class="mord mathnormal" style="margin-right:0.05017em;">B</span><span class="mord"><span class="mord mathnormal" style="margin-right:0.13889em;">W</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361079999999999em;"><span style="top:-2.5500000000000003em;margin-left:-0.13889em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">p</span><span class="mord mathnormal mtight">e</span><span class="mord mathnormal mtight">a</span><span class="mord mathnormal mtight" style="margin-right:0.03148em;">k</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.286108em;"><span></span></span></span></span></span></span></span></span></span> 是峰值带宽。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">性能</span><br><span class="line">  ^                    ───────── 计算上限</span><br><span class="line">  |                 /</span><br><span class="line">  |              /</span><br><span class="line">  |           /      转折点</span><br><span class="line">  |        /</span><br><span class="line">  |     / 带宽上限</span><br><span class="line">  +----------------------------&gt; 算术强度</span><br></pre></td></tr></table></figure>
+<p>它不能直接告诉我们哪一行代码有问题，但能排除错误方向：</p>
+<ul>
+<li>位于斜线区域：优先减少 HBM 访问、提高合并率和数据复用；</li>
+<li>位于水平区域：优先提高 Tensor Core 使用率、指令并行和计算占用；</li>
+<li>两个上限都远未达到：可能存在同步、分支、Launch、负载不均或数据准备问题。</li>
+</ul>
+<h3 id="21-一个带宽核算例子"><a class="markdownIt-Anchor" href="#21-一个带宽核算例子"></a> 2.1 一个带宽核算例子</h3>
+<p>对长度为 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>N</mi></mrow><annotation encoding="application/x-tex">N</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord mathnormal" style="margin-right:0.10903em;">N</span></span></span></span> 的 FP32 Vector Add，有效数据量为 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>12</mn><mi>N</mi></mrow><annotation encoding="application/x-tex">12N</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord">1</span><span class="mord">2</span><span class="mord mathnormal" style="margin-right:0.10903em;">N</span></span></span></span> Bytes。如果 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>N</mi><mo>=</mo><msup><mn>2</mn><mn>28</mn></msup></mrow><annotation encoding="application/x-tex">N=2^{28}</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord mathnormal" style="margin-right:0.10903em;">N</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:0.8141079999999999em;vertical-align:0em;"></span><span class="mord"><span class="mord">2</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8141079999999999em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">2</span><span class="mord mtight">8</span></span></span></span></span></span></span></span></span></span></span></span>，Kernel 用时 2.4ms，则有效带宽约为：</p>
+<p class='katex-block'><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi>B</mi><msub><mi>W</mi><mrow><mi>e</mi><mi>f</mi><mi>f</mi></mrow></msub><mo>=</mo><mfrac><mrow><mn>12</mn><mo>×</mo><msup><mn>2</mn><mn>28</mn></msup></mrow><mrow><mn>2.4</mn><mo>×</mo><mn>1</mn><msup><mn>0</mn><mrow><mo>−</mo><mn>3</mn></mrow></msup></mrow></mfrac><mo>≈</mo><mn>1.34</mn><mtext> TB/s</mtext></mrow><annotation encoding="application/x-tex">BW_{eff}=\frac{12\times2^{28}}{2.4\times10^{-3}}\approx1.34\text{ TB/s}
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.969438em;vertical-align:-0.286108em;"></span><span class="mord mathnormal" style="margin-right:0.05017em;">B</span><span class="mord"><span class="mord mathnormal" style="margin-right:0.13889em;">W</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3361079999999999em;"><span style="top:-2.5500000000000003em;margin-left:-0.13889em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">e</span><span class="mord mathnormal mtight" style="margin-right:0.10764em;">f</span><span class="mord mathnormal mtight" style="margin-right:0.10764em;">f</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.286108em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:2.260438em;vertical-align:-0.7693300000000001em;"></span><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.491108em;"><span style="top:-2.314em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord">2</span><span class="mord">.</span><span class="mord">4</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mord">1</span><span class="mord"><span class="mord">0</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.740108em;"><span style="top:-2.989em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">−</span><span class="mord mtight">3</span></span></span></span></span></span></span></span></span></span></span><span style="top:-3.23em;"><span class="pstrut" style="height:3em;"></span><span class="frac-line" style="border-bottom-width:0.04em;"></span></span><span style="top:-3.677em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord">1</span><span class="mord">2</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mord"><span class="mord">2</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8141079999999999em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">2</span><span class="mord mtight">8</span></span></span></span></span></span></span></span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.7693300000000001em;"><span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">≈</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord">1</span><span class="mord">.</span><span class="mord">3</span><span class="mord">4</span><span class="mord text"><span class="mord"> TB/s</span></span></span></span></span></span></p>
+<p>这个数字必须与目标 GPU 在同一访问模式下的可达带宽比较，而不是简单除以产品手册峰值。如果向量起始地址未对齐、线程访问跨越更多内存事务或时钟频率受限，实际可达上限会下降。</p>
+<p>类似地，GEMM 更适合报告 TFLOPS：</p>
+<p class='katex-block'><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><msub><mi>P</mi><mrow><mi>g</mi><mi>e</mi><mi>m</mi><mi>m</mi></mrow></msub><mo>=</mo><mfrac><mrow><mn>2</mn><mi>M</mi><mi>N</mi><mi>K</mi></mrow><mi>t</mi></mfrac></mrow><annotation encoding="application/x-tex">P_{gemm}=\frac{2MNK}{t}
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.969438em;vertical-align:-0.286108em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.13889em;">P</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.15139200000000003em;"><span style="top:-2.5500000000000003em;margin-left:-0.13889em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.03588em;">g</span><span class="mord mathnormal mtight">e</span><span class="mord mathnormal mtight">m</span><span class="mord mathnormal mtight">m</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.286108em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2777777777777778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2777777777777778em;"></span></span><span class="base"><span class="strut" style="height:2.04633em;vertical-align:-0.686em;"></span><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.36033em;"><span style="top:-2.314em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord mathnormal">t</span></span></span><span style="top:-3.23em;"><span class="pstrut" style="height:3em;"></span><span class="frac-line" style="border-bottom-width:0.04em;"></span></span><span style="top:-3.677em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord">2</span><span class="mord mathnormal" style="margin-right:0.10903em;">M</span><span class="mord mathnormal" style="margin-right:0.10903em;">N</span><span class="mord mathnormal" style="margin-right:0.07153em;">K</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.686em;"><span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span></span></span></span></span></p>
+<p>统一用“完成了多少必要工作/消耗了多少时间”描述性能，才能跨实现比较。</p>
+<h2 id="三-建立可信基线"><a class="markdownIt-Anchor" href="#三-建立可信基线"></a> 三、建立可信基线</h2>
+<p>优化前至少要保证四件事：</p>
+<ol>
+<li>与参考实现比较正确性；</li>
+<li>预热，排除首次初始化和编译；</li>
+<li>使用 CUDA Event 测量 GPU 时间；</li>
+<li>多次执行并报告中位数或分位数。</li>
+</ol>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cudaEventRecord</span>(start);</span><br><span class="line"><span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; repeat; ++i) &#123;</span><br><span class="line">    kernel&lt;&lt;&lt;grid, block&gt;&gt;&gt;(...);</span><br><span class="line">&#125;</span><br><span class="line"><span class="built_in">cudaEventRecord</span>(stop);</span><br><span class="line"><span class="built_in">cudaEventSynchronize</span>(stop);</span><br></pre></td></tr></table></figure>
+<p>如果每轮都调用 <code>cudaDeviceSynchronize()</code>，测到的可能不再是实际流水执行方式。端到端延迟和纯 Kernel 延迟也应分开报告。</p>
+<h2 id="四-同一套方法看五类算子"><a class="markdownIt-Anchor" href="#四-同一套方法看五类算子"></a> 四、同一套方法看五类算子</h2>
+<h3 id="41-reduce并行度和同步的平衡"><a class="markdownIt-Anchor" href="#41-reduce并行度和同步的平衡"></a> 4.1 Reduce：并行度和同步的平衡</h3>
+<p><img src="/images/posts/ai-infra-series/reduce-warp-shuffle.png" alt="Warp Shuffle 规约" /></p>
+<p><em>图 3：Warp Shuffle 将 Warp 内数据交换留在寄存器路径中，再用少量 Shared Memory 合并多个 Warp 的结果。</em></p>
+<p>Reduce 的输入只读取一次，计算量很低，通常受带宽和规约开销影响。典型优化路径是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">全局原子加</span><br><span class="line">→ Shared Memory 树形规约</span><br><span class="line">→ 消除 Warp Divergence</span><br><span class="line">→ 每线程处理多个元素</span><br><span class="line">→ Warp Shuffle</span><br><span class="line">→ 向量化加载</span><br></pre></td></tr></table></figure>
+<p>每一步都应该对应一个可验证的假设。例如使用 Warp Shuffle 的目的，不是“它更高级”，而是减少 Shared Memory 访问和 Block 内同步。</p>
+<h3 id="42-gemm用空间换数据复用"><a class="markdownIt-Anchor" href="#42-gemm用空间换数据复用"></a> 4.2 GEMM：用空间换数据复用</h3>
+<p><img src="/images/posts/ai-infra-series/gemm-thread-tiling.png" alt="GEMM Thread Tiling" /></p>
+<p><em>图 4：Thread Tiling 让一个线程计算多个输出元素，提高从 Shared Memory 到寄存器的数据复用。</em></p>
+<p>朴素 GEMM 中，每个线程独立从全局内存读取一行和一列，数据重复读取严重。Block Tiling 把 A、B 的 Tile 搬入 Shared Memory；Thread Tiling 再把局部数据放入寄存器。</p>
+<p>优化的代价也很明确：</p>
+<ul>
+<li>Tile 太小：复用不足；</li>
+<li>Tile 太大：Shared Memory 占用上升；</li>
+<li>每线程输出太多：寄存器压力增大；</li>
+<li>寄存器溢出：Local Memory 访问反而拖慢程序；</li>
+<li>Occupancy 降低：可能无法隐藏访存延迟。</li>
+</ul>
+<p>因此 Occupancy 不是目标，而是资源预算的一部分。</p>
+<p><img src="/images/posts/ai-infra-series/coalesced-access.png" alt="合并访存与非合并访存" /></p>
+<p><em>图 5：线程编号连续并不自动保证合并访存；关键是一个 Warp 请求的地址能否落入尽量少的内存事务。</em></p>
+<h3 id="43-softmax多遍扫描与规约"><a class="markdownIt-Anchor" href="#43-softmax多遍扫描与规约"></a> 4.3 Softmax：多遍扫描与规约</h3>
+<p>数值稳定的 Softmax 通常要完成：</p>
+<ol>
+<li>求最大值；</li>
+<li>计算指数和；</li>
+<li>归一化输出。</li>
+</ol>
+<p>这意味着多次读取同一行。Online Softmax 把最大值和指数和表示为可合并状态，减少扫描次数，并为 FlashAttention 的分块计算奠定基础。</p>
+<h3 id="44-flashattention优化的不是-flops"><a class="markdownIt-Anchor" href="#44-flashattention优化的不是-flops"></a> 4.4 FlashAttention：优化的不是 FLOPs</h3>
+<p><img src="/images/posts/ai-infra-series/flashattention-io.jpg" alt="标准 Attention 与 FlashAttention 的 IO 差异" /></p>
+<p><em>图 6：FlashAttention 的主要收益来自避免将完整 Attention 中间矩阵写回 HBM。</em></p>
+<p>标准 Attention 会产生并写回 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>S</mi><mo>×</mo><mi>S</mi></mrow><annotation encoding="application/x-tex">S\times S</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.76666em;vertical-align:-0.08333em;"></span><span class="mord mathnormal" style="margin-right:0.05764em;">S</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord mathnormal" style="margin-right:0.05764em;">S</span></span></span></span> 的分数或概率矩阵。FlashAttention 通过 Tiling 和 Online Softmax，让中间块停留在片上存储中。</p>
+<p>它并没有改变精确 Attention 的数学定义，核心收益来自降低 HBM IO。这个例子非常适合说明：理论 FLOPs 相同的两个算法，真实速度可以完全不同。</p>
+<h3 id="45-decodekernel-很快系统仍可能很慢"><a class="markdownIt-Anchor" href="#45-decodekernel-很快系统仍可能很慢"></a> 4.5 Decode：Kernel 很快，系统仍可能很慢</h3>
+<p>LLM Decode 中的单个 Kernel 规模较小，CPU Launch、Python 调度和框架开销可能占据明显比例。此时只看 Kernel 内部指标是不够的，需要用 Nsight Systems 检查 GPU 时间线中的空洞。</p>
+<p>CUDA Graph 可以录制并重放一组 Kernel，减少重复 Launch 开销。但它通常要求地址和形状相对稳定，也会增加捕获时间、显存占用和调试复杂度。</p>
+<h2 id="五-nsight-systems先看全局时间线"><a class="markdownIt-Anchor" href="#五-nsight-systems先看全局时间线"></a> 五、Nsight Systems：先看全局时间线</h2>
+<p>常用命令示例：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">nsys profile --trace=cuda,nvtx,osrt -o report ./app</span><br></pre></td></tr></table></figure>
+<p>重点检查：</p>
+<ul>
+<li>Kernel 之间是否存在明显 GPU Idle Gap；</li>
+<li>CPU 是否在数据预处理、Python 或锁等待中停顿；</li>
+<li>Host-to-Device 拷贝能否与计算重叠；</li>
+<li>NCCL 通信是否与反向计算重叠；</li>
+<li>是否存在大量极短 Kernel；</li>
+<li>多个 CUDA Stream 是否真正并行。</li>
+</ul>
+<p>Nsight Systems 适合回答“时间花在哪个阶段”，但不能完整解释某个 Kernel 为什么没有达到峰值。</p>
+<h2 id="六-nsight-compute下钻到单个-kernel"><a class="markdownIt-Anchor" href="#六-nsight-compute下钻到单个-kernel"></a> 六、Nsight Compute：下钻到单个 Kernel</h2>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ncu --<span class="built_in">set</span> full -o kernel-report ./app</span><br></pre></td></tr></table></figure>
+<p>建议按下面顺序阅读：</p>
+<h3 id="61-speed-of-light"><a class="markdownIt-Anchor" href="#61-speed-of-light"></a> 6.1 Speed of Light</h3>
+<p>先比较计算吞吐和内存吞吐相对于设备峰值的比例。如果 Memory 接近上限而 Compute 很低，通常是 Memory Bound；反之则可能是 Compute Bound。</p>
+<h3 id="62-memory-workload-analysis"><a class="markdownIt-Anchor" href="#62-memory-workload-analysis"></a> 6.2 Memory Workload Analysis</h3>
+<p>检查：</p>
+<ul>
+<li>Global Load/Store 是否合并；</li>
+<li>请求量与实际内存事务量是否相符；</li>
+<li>L1/L2 命中率；</li>
+<li>Shared Memory Bank Conflict；</li>
+<li>DRAM 吞吐是否接近有效上限。</li>
+</ul>
+<h3 id="63-occupancy"><a class="markdownIt-Anchor" href="#63-occupancy"></a> 6.3 Occupancy</h3>
+<p>确认限制 Active Warp 的资源：</p>
+<ul>
+<li>每线程寄存器；</li>
+<li>每 Block Shared Memory；</li>
+<li>Block 大小；</li>
+<li>架构上的最大 Block 和 Warp 数。</li>
+</ul>
+<p>高 Occupancy 可以帮助隐藏延迟，但不会自动提高算术强度或消除低效访存。</p>
+<h3 id="64-warp-stall"><a class="markdownIt-Anchor" href="#64-warp-stall"></a> 6.4 Warp Stall</h3>
+<p>不同架构和报告版本的指标名称可能变化，但常见信号包括：</p>
+<ul>
+<li>Long Scoreboard：Warp 长时间等待内存相关依赖；</li>
+<li>MIO Throttle：内存输入输出相关指令管线压力较大；</li>
+<li>Barrier：等待同步；</li>
+<li>Not Selected：有足够就绪 Warp，但当前没有被选中；</li>
+<li>Branch Resolving：分支控制流造成等待。</li>
+</ul>
+<p>不要看到一个 Stall 指标高就直接下结论。它必须和访存事务、吞吐、Occupancy 以及源码位置一起解释。</p>
+<h2 id="七-一个可复用的优化闭环"><a class="markdownIt-Anchor" href="#七-一个可复用的优化闭环"></a> 七、一个可复用的优化闭环</h2>
+<h3 id="第一步定义目标"><a class="markdownIt-Anchor" href="#第一步定义目标"></a> 第一步：定义目标</h3>
+<p>明确优化的是：</p>
+<ul>
+<li>单 Kernel 延迟；</li>
+<li>训练 Step Time；</li>
+<li>TTFT；</li>
+<li>TPOT；</li>
+<li>Tokens/s；</li>
+<li>每美元吞吐。</li>
+</ul>
+<h3 id="第二步建立模型"><a class="markdownIt-Anchor" href="#第二步建立模型"></a> 第二步：建立模型</h3>
+<p>计算 FLOPs、Bytes、算术强度、理论带宽时间和理论计算时间。</p>
+<h3 id="第三步获取证据"><a class="markdownIt-Anchor" href="#第三步获取证据"></a> 第三步：获取证据</h3>
+<p>用 Systems 判断阶段，用 Compute 判断 Kernel，用框架 Profiler 补充算子和调用栈信息。</p>
+<h3 id="第四步一次只修改一个变量"><a class="markdownIt-Anchor" href="#第四步一次只修改一个变量"></a> 第四步：一次只修改一个变量</h3>
+<p>例如只改变：</p>
+<ul>
+<li>Block Size；</li>
+<li>Tile 大小；</li>
+<li>向量化宽度；</li>
+<li>是否融合；</li>
+<li>是否使用 CUDA Graph。</li>
+</ul>
+<h3 id="第五步记录收益和代价"><a class="markdownIt-Anchor" href="#第五步记录收益和代价"></a> 第五步：记录收益和代价</h3>
+<p>至少记录正确性误差、延迟、吞吐、显存和适用输入范围。一个只在固定 Shape 上更快的 Kernel，不一定适合动态生产负载。</p>
+<h2 id="八-技术-qa"><a class="markdownIt-Anchor" href="#八-技术-qa"></a> 八、技术 Q&amp;A</h2>
+<h3 id="q1occupancy-达到-100为什么-kernel-仍可能很慢"><a class="markdownIt-Anchor" href="#q1occupancy-达到-100为什么-kernel-仍可能很慢"></a> Q1：Occupancy 达到 100%，为什么 Kernel 仍可能很慢？</h3>
+<p>Occupancy 只描述 SM 上驻留 Warp 的比例，不描述每个 Warp 的访存是否合并、数据是否复用、指令是否有效或 Tensor Core 是否被使用。一个高 Occupancy Kernel 可以同时具有低算术强度、严重 Bank Conflict 和大量无效线程。只有当瓶颈是“没有足够就绪 Warp 隐藏延迟”时，提高 Occupancy 才直接有效。</p>
+<h3 id="q2shared-memory-tiling-为什么能提高-gemm-算术强度"><a class="markdownIt-Anchor" href="#q2shared-memory-tiling-为什么能提高-gemm-算术强度"></a> Q2：Shared Memory Tiling 为什么能提高 GEMM 算术强度？</h3>
+<p>A、B 的一个 Tile 从 HBM 读取一次后，被 Block 内多个线程重复用于多个输出元素。必要 FLOPs 不变，而 HBM Bytes 减少，所以算术强度提高。Tile 继续增大时会消耗更多 Shared Memory 和寄存器，最终受 Occupancy、指令调度或片上带宽限制。</p>
+<h3 id="q3nsight-systems-和-nsight-compute-应该按什么顺序使用"><a class="markdownIt-Anchor" href="#q3nsight-systems-和-nsight-compute-应该按什么顺序使用"></a> Q3：Nsight Systems 和 Nsight Compute 应该按什么顺序使用？</h3>
+<p>先用 Systems 判断端到端时间花在 CPU、数据拷贝、NCCL、Kernel 还是 GPU Idle；只有确认某个 Kernel 占据主要时间且内部效率不足后，再用 Compute 分析其内存事务、吞吐、Stall 和 Occupancy。直接对任意 Kernel 跑完整 NCU 容易得到大量指标，却没有优化优先级。</p>
+<h3 id="q4flashattention-的-flops-相近为何仍能加速而-decode-的短-idle-gap-又该如何处理"><a class="markdownIt-Anchor" href="#q4flashattention-的-flops-相近为何仍能加速而-decode-的短-idle-gap-又该如何处理"></a> Q4：FlashAttention 的 FLOPs 相近为何仍能加速，而 Decode 的短 Idle Gap 又该如何处理？</h3>
+<p>标准 Attention 会把 <span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>S</mi><mo>×</mo><mi>S</mi></mrow><annotation encoding="application/x-tex">S\times S</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.76666em;vertical-align:-0.08333em;"></span><span class="mord mathnormal" style="margin-right:0.05764em;">S</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222222222222222em;"></span></span><span class="base"><span class="strut" style="height:0.68333em;vertical-align:0em;"></span><span class="mord mathnormal" style="margin-right:0.05764em;">S</span></span></span></span> 分数或概率矩阵写入 HBM，再读回用于后续计算；FlashAttention 在 SRAM 中按 Tile 完成分数、在线归一化和与 V 的累加，避免物化大中间矩阵，因此通过减少 IO 获得加速。若 Decode 时间线的主要问题是 Kernel 之间存在大量短 Idle Gap，则瓶颈在 CPU 调度、同步或 Launch，此时应优先考虑 CUDA Graph、算子融合和减少框架往返，而不是继续优化已经很短的单个 Kernel。</p>
+<h2 id="九-系列导航"><a class="markdownIt-Anchor" href="#九-系列导航"></a> 九、系列导航</h2>
+<p>上一篇：<a href="/2026/07/30/llm-token-journey/" title="LLM 自回归推理的执行路径：从 Tokenization 到 Continuous Batching">LLM 自回归推理的执行路径</a></p>
+<p>下一篇：<a href="/2026/07/30/llm-serving-as-operating-system/" title="LLM 推理引擎的内存管理与调度：PagedAttention、Prefix Cache 与 Continuous Batching">LLM 推理引擎的内存管理与调度</a></p>
+<h2 id="十-参考资料"><a class="markdownIt-Anchor" href="#十-参考资料"></a> 十、参考资料</h2>
+<h3 id="性能模型与硬件文档"><a class="markdownIt-Anchor" href="#性能模型与硬件文档"></a> 性能模型与硬件文档</h3>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://dl.acm.org/doi/10.1145/1498765.1498785">Roofline: An Insightful Visual Performance Model</a>：算术强度与性能上限。</li>
+<li><a target="_blank" rel="noopener" href="https://docs.nvidia.com/cuda/cuda-c-programming-guide/">NVIDIA CUDA C++ Programming Guide</a>：CUDA 执行与内存模型。</li>
+<li><a target="_blank" rel="noopener" href="https://docs.nvidia.com/deeplearning/performance/">NVIDIA Deep Learning Performance Guide</a>：深度学习工作负载性能分析。</li>
+<li><a target="_blank" rel="noopener" href="https://docs.nvidia.com/nsight-systems/UserGuide/">NVIDIA Nsight Systems User Guide</a>：系统级时间线分析。</li>
+<li><a target="_blank" rel="noopener" href="https://docs.nvidia.com/nsight-compute/">NVIDIA Nsight Compute</a>：Kernel 级性能指标。</li>
+</ul>
+<h3 id="算子优化"><a class="markdownIt-Anchor" href="#算子优化"></a> 算子优化</h3>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://github.com/NVIDIA/cutlass">CUTLASS</a>：高性能 GEMM 模板和多级流水设计。</li>
+<li><a target="_blank" rel="noopener" href="https://siboehm.com/articles/22/CUDA-MMM">How to Optimize a CUDA Matmul Kernel</a>：从朴素实现到接近 cuBLAS 的优化过程。</li>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/1805.02867">Online Normalizer Calculation for Softmax</a>：Online Softmax 的递推状态。</li>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2205.14135">FlashAttention</a>：IO-Aware Attention。</li>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2307.08691">FlashAttention-2</a>：并行划分和非 GEMM 操作优化。</li>
+<li><a target="_blank" rel="noopener" href="https://developer.nvidia.com/blog/cuda-graphs/">Getting Started with CUDA Graphs</a>：减少重复 Kernel Launch 开销。</li>
+<li><a target="_blank" rel="noopener" href="https://github.com/caomaolufei/AIInfraGuide">AIInfraGuide</a>：CUDA 内存模型、Reduce/GEMM/Softmax 优化及 Nsight 工具链资料，MIT License。</li>
+</ul>
+
+      
+    </div>
+    <div class="article-footer">
+      
+
+    </div>
+  </article>
+  
+</div>
+
+  <nav class="bar bar-footer clearfix" data-stick-bottom>
+  <div class="bar-inner">
+  
+  <ul class="pager pull-left">
+    
+    <li class="prev">
+      <a href="/2026/07/30/llm-serving-as-operating-system/" title="LLM 推理引擎的内存管理与调度：PagedAttention、Prefix Cache 与 Continuous Batching"><i class="icon icon-angle-left" aria-hidden="true"></i><span>&nbsp;&nbsp;Newer</span></a>
+    </li>
+    
+    
+    <li class="next">
+      <a href="/2026/07/30/llm-token-journey/" title="LLM 自回归推理的执行路径：从 Tokenization 到 Continuous Batching"><span>Older&nbsp;&nbsp;</span><i class="icon icon-angle-right" aria-hidden="true"></i></a>
+    </li>
+    
+    
+  </ul>
+  
+  
+  
+  <div class="bar-right">
+    
+  </div>
+  </div>
+</nav>
+  
+
+
+
+</main>
+
+  <footer class="footer" itemscope itemtype="http://schema.org/WPFooter">
+	
+	
+    <ul class="social-links">
+    	
+        <li><a href="https://github.com/zhouzhq2021" target="_blank" title="Github" data-toggle=tooltip data-placement=top><i class="icon icon-github"></i></a></li>
+        
+        <li><a href="mailto:zhouzhq2021@sjtu.edu.cn" target="_blank" title="Email" data-toggle=tooltip data-placement=top><i class="icon icon-email"></i></a></li>
+        
+        <li><a href="/atom.xml" target="_blank" title="Rss" data-toggle=tooltip data-placement=top><i class="icon icon-rss"></i></a></li>
+        
+    </ul>
+
+    <div class="copyright">
+    	
+        &copy; 2026 Zhongquan Zhou
+        
+        <div class="publishby">
+        	Theme by <a href="https://github.com/cofess" target="_blank"> cofess </a>base on <a href="https://github.com/cofess/hexo-theme-pure" target="_blank">pure</a>.
+        </div>
+    </div>
+</footer>
+  <script src="//cdn.jsdelivr.net/npm/jquery@1.12.4/dist/jquery.min.js"></script>
+<script>
+window.jQuery || document.write('<script src="js/jquery.min.js"><\/script>')
+</script>
+
+<script src="/js/plugin.min.js"></script>
+
+
+<script src="/js/application.js"></script>
+
+
+    <script>
+(function (window) {
+    var INSIGHT_CONFIG = {
+        TRANSLATION: {
+            POSTS: 'Posts',
+            PAGES: 'Pages',
+            CATEGORIES: 'Categories',
+            TAGS: 'Tags',
+            UNTITLED: '(Untitled)',
+        },
+        ROOT_URL: '/',
+        CONTENT_URL: '/content.json',
+    };
+    window.INSIGHT_CONFIG = INSIGHT_CONFIG;
+})(window);
+</script>
+
+<script src="/js/insight.js"></script>
+
+
+
+
+
+
+   
+<script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+
+
+
+
+
+  <script src="//cdn.jsdelivr.net/npm/@fancyapps/fancybox@3.3.5/dist/jquery.fancybox.min.js"></script>
+  <script>
+  //利用 FancyBox 实现点击图片放大
+  $(document).ready(function() {
+    $('article img').not('[hidden]').not('.panel-body img').each(function() {
+      var $image = $(this);
+      var imageCaption = $image.attr('alt');
+      var $imageWrapLink = $image.parent('a');
+      if ($imageWrapLink.length < 1) {
+        var src = this.getAttribute('src');
+        var idx = src.lastIndexOf('?');
+        if (idx != -1) {
+          src = src.substring(0, idx);
+        }
+        $imageWrapLink = $image.wrap('<a href="' + src + '"></a>').parent('a');
+      }
+      $imageWrapLink.attr('data-fancybox', 'images');
+      if (imageCaption) {
+        $imageWrapLink.attr('data-caption', imageCaption);
+      }
+    });
+    $().fancybox({
+      selector: '[data-fancybox="images"]',
+      hash: false,
+      loop: false,
+    });
+  });
+  </script>
+
+
+
+
+
+</body>
+</html>
