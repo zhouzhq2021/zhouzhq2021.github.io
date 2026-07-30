@@ -20,13 +20,13 @@ https://zhouzhq2021.github.io/tags/AI-Infra-Engineering-Series/
 https://zhouzhq2021.github.io/tags/GPU-Memory/
 https://zhouzhq2021.github.io/tags/CUDA-Performance/
 https://zhouzhq2021.github.io/tags/Ceph/
-https://zhouzhq2021.github.io/tags/Distributed-Training/
 https://zhouzhq2021.github.io/tags/Hadoop/
+https://zhouzhq2021.github.io/tags/Distributed-Training/
 https://zhouzhq2021.github.io/tags/Kubernetes/
-https://zhouzhq2021.github.io/tags/Capacity-Planning/
 https://zhouzhq2021.github.io/tags/LLM-Serving/
-https://zhouzhq2021.github.io/tags/LLM-Inference/
 https://zhouzhq2021.github.io/tags/FlashAttention/
+https://zhouzhq2021.github.io/tags/Capacity-Planning/
+https://zhouzhq2021.github.io/tags/LLM-Inference/
 https://zhouzhq2021.github.io/tags/OpenStack/
 https://zhouzhq2021.github.io/categories/AI-Infrastructure/
 https://zhouzhq2021.github.io/categories/Cloud-Computing-and-Big-Data/
