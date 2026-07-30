@@ -21,7 +21,7 @@
   <meta name="description" content="分布式训练经常被介绍成一串缩写：DP、DDP、FSDP、TP、PP、EP、CP。只记缩写很难形成稳定理解，因为真正决定系统行为的不是名称，而是三个问题：切分了什么、什么时候需要恢复完整数据、恢复时使用什么通信原语。 本文从 AllReduce 出发，把集合通信、显存分片、模型并行和物理拓扑放进同一个框架。  图 1：高频 TP 通信位于单机 NVLink 域，较低频的数据并行同步跨节点进行。 分析">
 <meta property="og:type" content="article">
 <meta property="og:title" content="分布式训练的通信模型：从集合通信到多维并行">
-<meta property="og:url" content="https://zhouzhq2021.github.io/2026/07/30/distributed-training-from-allreduce/index.html">
+<meta property="og:url" content="https://zhouzhq2021.github.io/2026/07/26/distributed-training-from-allreduce/index.html">
 <meta property="og:site_name" content="Zhongquan Zhou&#39;s Blog">
 <meta property="og:description" content="分布式训练经常被介绍成一串缩写：DP、DDP、FSDP、TP、PP、EP、CP。只记缩写很难形成稳定理解，因为真正决定系统行为的不是名称，而是三个问题：切分了什么、什么时候需要恢复完整数据、恢复时使用什么通信原语。 本文从 AllReduce 出发，把集合通信、显存分片、模型并行和物理拓扑放进同一个框架。  图 1：高频 TP 通信位于单机 NVLink 域，较低频的数据并行同步跨节点进行。 分析">
 <meta property="og:locale" content="en_US">
@@ -30,18 +30,15 @@
 <meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ai-infra-series/ddp-no-overlap.svg">
 <meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ai-infra-series/ddp-overlap.svg">
 <meta property="og:image" content="https://zhouzhq2021.github.io/images/posts/ai-infra-series/ddp-bucket.svg">
-<meta property="article:published_time" content="2026-07-30T02:40:00.000Z">
-<meta property="article:modified_time" content="2026-07-30T03:24:28.830Z">
+<meta property="article:published_time" content="2026-07-26T02:00:00.000Z">
+<meta property="article:modified_time" content="2026-07-30T04:18:20.513Z">
 <meta property="article:author" content="Zhongquan Zhou">
-<meta property="article:tag" content="AI Infra">
 <meta property="article:tag" content="AI Infra Engineering Series">
 <meta property="article:tag" content="Distributed Training">
-<meta property="article:tag" content="NCCL">
-<meta property="article:tag" content="FSDP">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:image" content="https://zhouzhq2021.github.io/images/posts/ai-infra-series/parallel-topology.svg">
   <!-- Canonical links -->
-  <link rel="canonical" href="https://zhouzhq2021.github.io/2026/07/30/distributed-training-from-allreduce/index.html">
+  <link rel="canonical" href="https://zhouzhq2021.github.io/2026/07/26/distributed-training-from-allreduce/index.html">
   
     <link rel="alternate" href="/atom.xml" title="Zhongquan Zhou&#39;s Blog" type="application/atom+xml">
   
@@ -256,7 +253,7 @@
   <div class="widget">
     <h3 class="widget-title">Tags</h3>
     <div class="widget-body">
-      <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/AI-Infra/" rel="tag">AI Infra</a><span class="tag-list-count">7</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/AI-Infra-Engineering-Series/" rel="tag">AI Infra Engineering Series</a><span class="tag-list-count">7</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Benchmark/" rel="tag">Benchmark</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/CUDA/" rel="tag">CUDA</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Capacity-Planning/" rel="tag">Capacity Planning</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Ceph/" rel="tag">Ceph</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Distributed-Training/" rel="tag">Distributed Training</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/FSDP/" rel="tag">FSDP</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/FlashAttention/" rel="tag">FlashAttention</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/GPU-Memory/" rel="tag">GPU Memory</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Hadoop/" rel="tag">Hadoop</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Kubernetes/" rel="tag">Kubernetes</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/LLM-Inference/" rel="tag">LLM Inference</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/LLM-Serving/" rel="tag">LLM Serving</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/NCCL/" rel="tag">NCCL</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Nsight/" rel="tag">Nsight</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Numerical-Stability/" rel="tag">Numerical Stability</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/OpenStack/" rel="tag">OpenStack</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/PagedAttention/" rel="tag">PagedAttention</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Performance-Profiling/" rel="tag">Performance Profiling</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Softmax/" rel="tag">Softmax</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Transformer/" rel="tag">Transformer</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/vLLM/" rel="tag">vLLM</a><span class="tag-list-count">2</span></li></ul>
+      <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/AI-Infra-Engineering-Series/" rel="tag">AI Infra Engineering Series</a><span class="tag-list-count">7</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/CUDA-Performance/" rel="tag">CUDA Performance</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Capacity-Planning/" rel="tag">Capacity Planning</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Ceph/" rel="tag">Ceph</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Distributed-Training/" rel="tag">Distributed Training</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/FlashAttention/" rel="tag">FlashAttention</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/GPU-Memory/" rel="tag">GPU Memory</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Hadoop/" rel="tag">Hadoop</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Kubernetes/" rel="tag">Kubernetes</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/LLM-Inference/" rel="tag">LLM Inference</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/LLM-Serving/" rel="tag">LLM Serving</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/OpenStack/" rel="tag">OpenStack</a><span class="tag-list-count">1</span></li></ul>
     </div>
   </div>
 
@@ -266,7 +263,7 @@
   <div class="widget">
     <h3 class="widget-title">Tag Cloud</h3>
     <div class="widget-body tagcloud">
-      <a href="/tags/AI-Infra/" style="font-size: 14px;">AI Infra</a> <a href="/tags/AI-Infra-Engineering-Series/" style="font-size: 14px;">AI Infra Engineering Series</a> <a href="/tags/Benchmark/" style="font-size: 13px;">Benchmark</a> <a href="/tags/CUDA/" style="font-size: 13px;">CUDA</a> <a href="/tags/Capacity-Planning/" style="font-size: 13px;">Capacity Planning</a> <a href="/tags/Ceph/" style="font-size: 13px;">Ceph</a> <a href="/tags/Distributed-Training/" style="font-size: 13.5px;">Distributed Training</a> <a href="/tags/FSDP/" style="font-size: 13px;">FSDP</a> <a href="/tags/FlashAttention/" style="font-size: 13px;">FlashAttention</a> <a href="/tags/GPU-Memory/" style="font-size: 13px;">GPU Memory</a> <a href="/tags/Hadoop/" style="font-size: 13px;">Hadoop</a> <a href="/tags/Kubernetes/" style="font-size: 13px;">Kubernetes</a> <a href="/tags/LLM-Inference/" style="font-size: 13.5px;">LLM Inference</a> <a href="/tags/LLM-Serving/" style="font-size: 13.5px;">LLM Serving</a> <a href="/tags/NCCL/" style="font-size: 13px;">NCCL</a> <a href="/tags/Nsight/" style="font-size: 13px;">Nsight</a> <a href="/tags/Numerical-Stability/" style="font-size: 13px;">Numerical Stability</a> <a href="/tags/OpenStack/" style="font-size: 13px;">OpenStack</a> <a href="/tags/PagedAttention/" style="font-size: 13px;">PagedAttention</a> <a href="/tags/Performance-Profiling/" style="font-size: 13px;">Performance Profiling</a> <a href="/tags/Softmax/" style="font-size: 13px;">Softmax</a> <a href="/tags/Transformer/" style="font-size: 13px;">Transformer</a> <a href="/tags/vLLM/" style="font-size: 13.5px;">vLLM</a>
+      <a href="/tags/AI-Infra-Engineering-Series/" style="font-size: 14px;">AI Infra Engineering Series</a> <a href="/tags/CUDA-Performance/" style="font-size: 13px;">CUDA Performance</a> <a href="/tags/Capacity-Planning/" style="font-size: 13px;">Capacity Planning</a> <a href="/tags/Ceph/" style="font-size: 13px;">Ceph</a> <a href="/tags/Distributed-Training/" style="font-size: 13px;">Distributed Training</a> <a href="/tags/FlashAttention/" style="font-size: 13px;">FlashAttention</a> <a href="/tags/GPU-Memory/" style="font-size: 13px;">GPU Memory</a> <a href="/tags/Hadoop/" style="font-size: 13px;">Hadoop</a> <a href="/tags/Kubernetes/" style="font-size: 13px;">Kubernetes</a> <a href="/tags/LLM-Inference/" style="font-size: 13px;">LLM Inference</a> <a href="/tags/LLM-Serving/" style="font-size: 13px;">LLM Serving</a> <a href="/tags/OpenStack/" style="font-size: 13px;">OpenStack</a>
     </div>
   </div>
 
@@ -307,7 +304,7 @@
                 <a href="/2026/07/30/llm-70b-capacity-planning/" class="title">70B 大模型推理服务的容量规划与性能设计</a>
               </p>
               <p class="item-date">
-                <time datetime="2026-07-30T03:00:00.000Z" itemprop="datePublished">2026-07-30</time>
+                <time datetime="2026-07-30T02:00:00.000Z" itemprop="datePublished">2026-07-30</time>
               </p>
             </div>
           </li>
@@ -315,7 +312,7 @@
           <li>
             
             <div class="item-thumb">
-              <a href="/2026/07/30/numerical-stability-to-flashattention/" class="thumb">
+              <a href="/2026/07/28/numerical-stability-to-flashattention/" class="thumb">
     
     
         <span class="thumb-image thumb-none"></span>
@@ -329,10 +326,10 @@
                 <a class="category-link" href="/categories/AI-Infrastructure/">AI Infrastructure</a>
               </p>
               <p class="item-title">
-                <a href="/2026/07/30/numerical-stability-to-flashattention/" class="title">Softmax 数值稳定性与 IO-Aware Attention：从在线归一化到 FlashAttention</a>
+                <a href="/2026/07/28/numerical-stability-to-flashattention/" class="title">Softmax 数值稳定性与 IO-Aware Attention：从在线归一化到 FlashAttention</a>
               </p>
               <p class="item-date">
-                <time datetime="2026-07-30T02:50:00.000Z" itemprop="datePublished">2026-07-30</time>
+                <time datetime="2026-07-28T02:00:00.000Z" itemprop="datePublished">2026-07-28</time>
               </p>
             </div>
           </li>
@@ -340,7 +337,7 @@
           <li>
             
             <div class="item-thumb">
-              <a href="/2026/07/30/distributed-training-from-allreduce/" class="thumb">
+              <a href="/2026/07/26/distributed-training-from-allreduce/" class="thumb">
     
     
         <span class="thumb-image thumb-none"></span>
@@ -354,10 +351,10 @@
                 <a class="category-link" href="/categories/AI-Infrastructure/">AI Infrastructure</a>
               </p>
               <p class="item-title">
-                <a href="/2026/07/30/distributed-training-from-allreduce/" class="title">分布式训练的通信模型：从集合通信到多维并行</a>
+                <a href="/2026/07/26/distributed-training-from-allreduce/" class="title">分布式训练的通信模型：从集合通信到多维并行</a>
               </p>
               <p class="item-date">
-                <time datetime="2026-07-30T02:40:00.000Z" itemprop="datePublished">2026-07-30</time>
+                <time datetime="2026-07-26T02:00:00.000Z" itemprop="datePublished">2026-07-26</time>
               </p>
             </div>
           </li>
@@ -365,7 +362,7 @@
           <li>
             
             <div class="item-thumb">
-              <a href="/2026/07/30/llm-serving-as-operating-system/" class="thumb">
+              <a href="/2026/07/24/llm-serving-as-operating-system/" class="thumb">
     
     
         <span class="thumb-image thumb-none"></span>
@@ -379,10 +376,10 @@
                 <a class="category-link" href="/categories/AI-Infrastructure/">AI Infrastructure</a>
               </p>
               <p class="item-title">
-                <a href="/2026/07/30/llm-serving-as-operating-system/" class="title">LLM 推理引擎的内存管理与调度：PagedAttention、Prefix Cache 与 Continuous Batching</a>
+                <a href="/2026/07/24/llm-serving-as-operating-system/" class="title">LLM 推理引擎的内存管理与调度：PagedAttention、Prefix Cache 与 Continuous Batching</a>
               </p>
               <p class="item-date">
-                <time datetime="2026-07-30T02:30:00.000Z" itemprop="datePublished">2026-07-30</time>
+                <time datetime="2026-07-24T02:00:00.000Z" itemprop="datePublished">2026-07-24</time>
               </p>
             </div>
           </li>
@@ -390,7 +387,7 @@
           <li>
             
             <div class="item-thumb">
-              <a href="/2026/07/30/ai-infra-roofline-profiling/" class="thumb">
+              <a href="/2026/07/22/ai-infra-roofline-profiling/" class="thumb">
     
     
         <span class="thumb-image thumb-none"></span>
@@ -404,10 +401,10 @@
                 <a class="category-link" href="/categories/AI-Infrastructure/">AI Infrastructure</a>
               </p>
               <p class="item-title">
-                <a href="/2026/07/30/ai-infra-roofline-profiling/" class="title">GPU 性能分析方法：Roofline 模型、CUDA 内存层次与 Nsight</a>
+                <a href="/2026/07/22/ai-infra-roofline-profiling/" class="title">GPU 性能分析方法：Roofline 模型、CUDA 内存层次与 Nsight</a>
               </p>
               <p class="item-date">
-                <time datetime="2026-07-30T02:20:00.000Z" itemprop="datePublished">2026-07-30</time>
+                <time datetime="2026-07-22T02:00:00.000Z" itemprop="datePublished">2026-07-22</time>
               </p>
             </div>
           </li>
@@ -440,8 +437,8 @@
       <div class="article-meta">
         <span class="article-date">
     <i class="icon icon-calendar-check"></i>
-	<a href="/2026/07/30/distributed-training-from-allreduce/" class="article-date">
-	  <time datetime="2026-07-30T02:40:00.000Z" itemprop="datePublished">2026-07-30</time>
+	<a href="/2026/07/26/distributed-training-from-allreduce/" class="article-date">
+	  <time datetime="2026-07-26T02:00:00.000Z" itemprop="datePublished">2026-07-26</time>
 	</a>
 </span>
         
@@ -453,7 +450,7 @@
         
   <span class="article-tag">
     <i class="icon icon-tags"></i>
-	<a class="article-tag-link-link" href="/tags/AI-Infra/" rel="tag">AI Infra</a>, <a class="article-tag-link-link" href="/tags/AI-Infra-Engineering-Series/" rel="tag">AI Infra Engineering Series</a>, <a class="article-tag-link-link" href="/tags/Distributed-Training/" rel="tag">Distributed Training</a>, <a class="article-tag-link-link" href="/tags/FSDP/" rel="tag">FSDP</a>, <a class="article-tag-link-link" href="/tags/NCCL/" rel="tag">NCCL</a>
+	<a class="article-tag-link-link" href="/tags/AI-Infra-Engineering-Series/" rel="tag">AI Infra Engineering Series</a>, <a class="article-tag-link-link" href="/tags/Distributed-Training/" rel="tag">Distributed Training</a>
   </span>
 
 
@@ -648,8 +645,8 @@
 <h3 id="q4如何区分集合通信-hang-是代码问题还是网络问题"><a class="markdownIt-Anchor" href="#q4如何区分集合通信-hang-是代码问题还是网络问题"></a> Q4：如何区分集合通信 Hang 是代码问题还是网络问题？</h3>
 <p>先确认各 Rank 是否以相同顺序、相同张量形状进入同一 Collective，并检查是否有 Rank 提前异常退出；再用 <code>NCCL_DEBUG=INFO</code> 查看连接和拓扑。若独立 <code>nccl-tests</code> 在相同节点、网卡和数据规模下也失败，应优先排查驱动、IB/RoCE、端口和网络；若测试正常，问题更可能来自程序控制流或 Process Group 使用方式。</p>
 <h2 id="十二-系列导航"><a class="markdownIt-Anchor" href="#十二-系列导航"></a> 十二、系列导航</h2>
-<p>上一篇：<a href="/2026/07/30/llm-serving-as-operating-system/" title="LLM 推理引擎的内存管理与调度：PagedAttention、Prefix Cache 与 Continuous Batching">LLM 推理引擎的内存管理与调度</a></p>
-<p>下一篇：<a href="/2026/07/30/numerical-stability-to-flashattention/" title="Softmax 数值稳定性与 IO-Aware Attention：从在线归一化到 FlashAttention">Softmax 数值稳定性与 IO-Aware Attention</a></p>
+<p>上一篇：<a href="/2026/07/24/llm-serving-as-operating-system/" title="LLM 推理引擎的内存管理与调度：PagedAttention、Prefix Cache 与 Continuous Batching">LLM 推理引擎的内存管理与调度</a></p>
+<p>下一篇：<a href="/2026/07/28/numerical-stability-to-flashattention/" title="Softmax 数值稳定性与 IO-Aware Attention：从在线归一化到 FlashAttention">Softmax 数值稳定性与 IO-Aware Attention</a></p>
 <h2 id="十三-参考资料"><a class="markdownIt-Anchor" href="#十三-参考资料"></a> 十三、参考资料</h2>
 <h3 id="集合通信与工具"><a class="markdownIt-Anchor" href="#集合通信与工具"></a> 集合通信与工具</h3>
 <ul>
@@ -685,12 +682,12 @@
   <ul class="pager pull-left">
     
     <li class="prev">
-      <a href="/2026/07/30/numerical-stability-to-flashattention/" title="Softmax 数值稳定性与 IO-Aware Attention：从在线归一化到 FlashAttention"><i class="icon icon-angle-left" aria-hidden="true"></i><span>&nbsp;&nbsp;Newer</span></a>
+      <a href="/2026/07/28/numerical-stability-to-flashattention/" title="Softmax 数值稳定性与 IO-Aware Attention：从在线归一化到 FlashAttention"><i class="icon icon-angle-left" aria-hidden="true"></i><span>&nbsp;&nbsp;Newer</span></a>
     </li>
     
     
     <li class="next">
-      <a href="/2026/07/30/llm-serving-as-operating-system/" title="LLM 推理引擎的内存管理与调度：PagedAttention、Prefix Cache 与 Continuous Batching"><span>Older&nbsp;&nbsp;</span><i class="icon icon-angle-right" aria-hidden="true"></i></a>
+      <a href="/2026/07/24/llm-serving-as-operating-system/" title="LLM 推理引擎的内存管理与调度：PagedAttention、Prefix Cache 与 Continuous Batching"><span>Older&nbsp;&nbsp;</span><i class="icon icon-angle-right" aria-hidden="true"></i></a>
     </li>
     
     

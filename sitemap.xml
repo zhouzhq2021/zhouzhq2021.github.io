@@ -2,7 +2,7 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   
   <url>
-    <loc>https://zhouzhq2021.github.io/2026/07/30/distributed-training-from-allreduce/</loc>
+    <loc>https://zhouzhq2021.github.io/index.html</loc>
     
     <lastmod>2026-07-30</lastmod>
     
@@ -20,7 +20,7 @@
   </url>
   
   <url>
-    <loc>https://zhouzhq2021.github.io/2026/07/30/numerical-stability-to-flashattention/</loc>
+    <loc>https://zhouzhq2021.github.io/2026/07/22/ai-infra-roofline-profiling/</loc>
     
     <lastmod>2026-07-30</lastmod>
     
@@ -29,7 +29,7 @@
   </url>
   
   <url>
-    <loc>https://zhouzhq2021.github.io/2026/07/30/ai-infra-roofline-profiling/</loc>
+    <loc>https://zhouzhq2021.github.io/2026/07/26/distributed-training-from-allreduce/</loc>
     
     <lastmod>2026-07-30</lastmod>
     
@@ -38,7 +38,7 @@
   </url>
   
   <url>
-    <loc>https://zhouzhq2021.github.io/2026/07/30/llm-serving-as-operating-system/</loc>
+    <loc>https://zhouzhq2021.github.io/2026/07/24/llm-serving-as-operating-system/</loc>
     
     <lastmod>2026-07-30</lastmod>
     
@@ -47,7 +47,7 @@
   </url>
   
   <url>
-    <loc>https://zhouzhq2021.github.io/2026/07/30/llm-token-journey/</loc>
+    <loc>https://zhouzhq2021.github.io/2026/07/28/numerical-stability-to-flashattention/</loc>
     
     <lastmod>2026-07-30</lastmod>
     
@@ -56,7 +56,16 @@
   </url>
   
   <url>
-    <loc>https://zhouzhq2021.github.io/2026/07/30/ai-infra-memory-ledger/</loc>
+    <loc>https://zhouzhq2021.github.io/2026/07/18/ai-infra-memory-ledger/</loc>
+    
+    <lastmod>2026-07-30</lastmod>
+    
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
+    <loc>https://zhouzhq2021.github.io/2026/07/20/llm-token-journey/</loc>
     
     <lastmod>2026-07-30</lastmod>
     
@@ -101,16 +110,7 @@
   </url>
   
   <url>
-    <loc>https://zhouzhq2021.github.io/index.html</loc>
-    
-    <lastmod>2026-06-08</lastmod>
-    
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
-  </url>
-  
-  <url>
-    <loc>https://zhouzhq2021.github.io/categories/index.html</loc>
+    <loc>https://zhouzhq2021.github.io/books/index.html</loc>
     
     <lastmod>2026-06-05</lastmod>
     
@@ -119,7 +119,7 @@
   </url>
   
   <url>
-    <loc>https://zhouzhq2021.github.io/books/index.html</loc>
+    <loc>https://zhouzhq2021.github.io/categories/index.html</loc>
     
     <lastmod>2026-06-05</lastmod>
     
@@ -164,13 +164,6 @@
 
   
   <url>
-    <loc>https://zhouzhq2021.github.io/tags/AI-Infra/</loc>
-    <lastmod>2026-07-30</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.2</priority>
-  </url>
-  
-  <url>
     <loc>https://zhouzhq2021.github.io/tags/AI-Infra-Engineering-Series/</loc>
     <lastmod>2026-07-30</lastmod>
     <changefreq>weekly</changefreq>
@@ -185,35 +178,7 @@
   </url>
   
   <url>
-    <loc>https://zhouzhq2021.github.io/tags/Distributed-Training/</loc>
-    <lastmod>2026-07-30</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.2</priority>
-  </url>
-  
-  <url>
-    <loc>https://zhouzhq2021.github.io/tags/LLM-Inference/</loc>
-    <lastmod>2026-07-30</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.2</priority>
-  </url>
-  
-  <url>
-    <loc>https://zhouzhq2021.github.io/tags/NCCL/</loc>
-    <lastmod>2026-07-30</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.2</priority>
-  </url>
-  
-  <url>
-    <loc>https://zhouzhq2021.github.io/tags/FSDP/</loc>
-    <lastmod>2026-07-30</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.2</priority>
-  </url>
-  
-  <url>
-    <loc>https://zhouzhq2021.github.io/tags/Hadoop/</loc>
+    <loc>https://zhouzhq2021.github.io/tags/CUDA-Performance/</loc>
     <lastmod>2026-07-30</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.2</priority>
@@ -227,21 +192,14 @@
   </url>
   
   <url>
-    <loc>https://zhouzhq2021.github.io/tags/CUDA/</loc>
+    <loc>https://zhouzhq2021.github.io/tags/Distributed-Training/</loc>
     <lastmod>2026-07-30</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.2</priority>
   </url>
   
   <url>
-    <loc>https://zhouzhq2021.github.io/tags/Performance-Profiling/</loc>
-    <lastmod>2026-07-30</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.2</priority>
-  </url>
-  
-  <url>
-    <loc>https://zhouzhq2021.github.io/tags/Nsight/</loc>
+    <loc>https://zhouzhq2021.github.io/tags/Hadoop/</loc>
     <lastmod>2026-07-30</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.2</priority>
@@ -269,42 +227,7 @@
   </url>
   
   <url>
-    <loc>https://zhouzhq2021.github.io/tags/Benchmark/</loc>
-    <lastmod>2026-07-30</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.2</priority>
-  </url>
-  
-  <url>
-    <loc>https://zhouzhq2021.github.io/tags/vLLM/</loc>
-    <lastmod>2026-07-30</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.2</priority>
-  </url>
-  
-  <url>
-    <loc>https://zhouzhq2021.github.io/tags/PagedAttention/</loc>
-    <lastmod>2026-07-30</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.2</priority>
-  </url>
-  
-  <url>
-    <loc>https://zhouzhq2021.github.io/tags/Transformer/</loc>
-    <lastmod>2026-07-30</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.2</priority>
-  </url>
-  
-  <url>
-    <loc>https://zhouzhq2021.github.io/tags/Numerical-Stability/</loc>
-    <lastmod>2026-07-30</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.2</priority>
-  </url>
-  
-  <url>
-    <loc>https://zhouzhq2021.github.io/tags/Softmax/</loc>
+    <loc>https://zhouzhq2021.github.io/tags/LLM-Inference/</loc>
     <lastmod>2026-07-30</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.2</priority>
